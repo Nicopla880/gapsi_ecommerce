@@ -1,4 +1,4 @@
-package com.example.gaspi_ecommerce
+package com.example.gapsi_ecommerce
 
 import io.flutter.embedding.android.FlutterActivity
 

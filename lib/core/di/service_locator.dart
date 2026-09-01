@@ -14,5 +14,5 @@ void setupServiceLocator() {
   // Core
   getIt.registerLazySingleton<DioClient>(DioClient.new);
 
-  // TODO(gaspi): registrar datasources y repositorios a medida que se agreguen.
+  // TODO(gapsi): registrar datasources y repositorios a medida que se agreguen.
 }

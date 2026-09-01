@@ -1,4 +1,4 @@
-# gaspi_ecommerce
+# gapsi_ecommerce
 
 Buscador de productos sobre una API de eCommerce, construido con Flutter y Clean Architecture.
 
