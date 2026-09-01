@@ -1,0 +1,79 @@
+{
+  "responseStatus": "SUCCESS",
+  "responseMessage": "Request processed successfully",
+  "item": {
+    "props": {
+      "pageProps": {
+        "initialData": {
+          "searchResult": {
+            "itemStacks": [
+              {
+                "layoutEnum": "GRID",
+                "title": "Results for \"nintendo\"",
+                "items": [
+                  {
+                    "__typename": "Product",
+                    "id": "OPAQUE_PRODUCT_ID_1",
+                    "usItemId": "927771478",
+                    "name": "Nintendo Switch Lite - Blue",
+                    "price": 132,
+                    "priceInfo": {
+                      "linePrice": "$132.30",
+                      "minPrice": 132.3,
+                      "itemPrice": "$147.00"
+                    },
+                    "image": "https://i5.walmartimages.com/asr/example-1.jpeg",
+                    "imageInfo": {
+                      "thumbnailUrl": "https://i5.walmartimages.com/asr/example-1.jpeg"
+                    },
+                    "description": "Portable Nintendo console"
+                  },
+                  {
+                    "__typename": "AdPlaceholder"
+                  },
+                  {
+                    "__typename": "Product",
+                    "id": "OPAQUE_PRODUCT_ID_2",
+                    "usItemId": "321765329",
+                    "name": "Nintendo Switch Console",
+                    "price": 0,
+                    "priceInfo": {
+                      "linePrice": "",
+                      "minPrice": 0,
+                      "itemPrice": ""
+                    },
+                    "image": "",
+                    "description": ""
+                  }
+                ]
+              },
+              {
+                "layoutEnum": "CAROUSEL",
+                "title": "Highly rated by customers",
+                "items": [
+                  {
+                    "__typename": "Product",
+                    "id": "RECOMMENDATION_ID",
+                    "usItemId": "999999999",
+                    "name": "Recommendation outside search results",
+                    "price": 99,
+                    "image": "https://i5.walmartimages.com/asr/recommendation.jpeg"
+                  }
+                ]
+              }
+            ],
+            "paginationV2": {
+              "maxPage": 14,
+              "pageProperties": {
+                "page": 1
+              }
+            },
+            "count": 56,
+            "gridItemsCount": 46,
+            "hasMorePages": false
+          }
+        }
+      }
+    }
+  }
+}

@@ -2,16 +2,9 @@ import '../../domain/entities/product.dart';
 
 /// Traduce un item de la respuesta de búsqueda a un [Product].
 ///
-/// ⚠️ El shape del endpoint de búsqueda **todavía no está validado contra la
-/// API real**. Lo de acá abajo es la mejor estimación a partir del shape
-/// confirmado del producto individual de Walmart (`name`,
-/// `priceInfo.currentPrice.price`, `imageInfo.thumbnailUrl`).
-///
-/// Por eso el parseo es defensivo: cada campo prueba varios nombres y varios
-/// niveles de anidamiento, y ante la duda devuelve `null` en vez de lanzar. Un
-/// producto con un campo faltante se muestra incompleto, pero no rompe la
-/// búsqueda entera. Cuando se confirme la respuesta real, alcanza con podar los
-/// alias sobrantes de las listas de rutas.
+/// El contrato de búsqueda de Axesso validado expone `usItemId`, `name`,
+/// `priceInfo.linePrice`, `image` y `description`. Los aliases posteriores se
+/// conservan solo como compatibilidad defensiva con otros shapes de Walmart.
 class ProductModel extends Product {
   const ProductModel({
     required super.id,
@@ -24,19 +17,17 @@ class ProductModel extends Product {
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     return ProductModel(
       // `id` y `title` no son nullable en la entity. Si el API no los trae,
-      // caen a string vacío: la UI puede filtrarlos, pero el parseo no rompe.
+      // caen a string vacío y el repositorio descarta el item sin identidad.
       id: _pickString(json, const <String>[
-        'itemId',
-        'productId',
         'usItemId',
         'id',
+        'itemId',
+        'productId',
       ]),
-      title: _pickString(json, const <String>[
-        'name',
-        'title',
-        'productName',
-      ]),
-      price: _pickDouble(json, const <String>[
+      title: _pickString(json, const <String>['name', 'title', 'productName']),
+      price: _pickPositiveDouble(json, const <String>[
+        'priceInfo.linePrice',
+        'priceInfo.minPrice',
         'price',
         'priceInfo.currentPrice.price',
         'currentPrice.price',
@@ -44,11 +35,11 @@ class ProductModel extends Product {
         'salePrice',
       ]),
       thumbnailUrl: _pickStringOrNull(json, const <String>[
+        'image',
+        'imageInfo.thumbnailUrl',
         'thumbnailImage',
         'thumbnailUrl',
-        'imageInfo.thumbnailUrl',
         'imageInfo.allImages.0.url',
-        'image',
         'imageUrl',
       ]),
       description: _pickStringOrNull(json, const <String>[
@@ -93,17 +84,18 @@ String? _pickStringOrNull(Map<String, dynamic> json, List<String> paths) {
 String _pickString(Map<String, dynamic> json, List<String> paths) =>
     _pickStringOrNull(json, paths) ?? '';
 
-/// Primer valor de [paths] convertible a double. Tolera números como string
-/// ("12.99", "$12.99") porque no está confirmado cómo los serializa el API.
-double? _pickDouble(Map<String, dynamic> json, List<String> paths) {
+/// Primer precio positivo de [paths]. Axesso usa strings con símbolo para el
+/// precio visible y devuelve ceros junto con strings vacíos cuando no dispone
+/// de precio; en ese caso la entity recibe `null`, no un engañoso "$0.00".
+double? _pickPositiveDouble(Map<String, dynamic> json, List<String> paths) {
   for (final String path in paths) {
     final Object? value = _read(json, path);
-    if (value is num) return value.toDouble();
+    if (value is num && value > 0) return value.toDouble();
     if (value is String) {
       final double? parsed = double.tryParse(
         value.replaceAll(RegExp(r'[^0-9.\-]'), ''),
       );
-      if (parsed != null) return parsed;
+      if (parsed != null && parsed > 0) return parsed;
     }
   }
   return null;
