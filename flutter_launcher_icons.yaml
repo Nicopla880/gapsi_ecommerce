@@ -1,0 +1,15 @@
+# Íconos de la app. Regenerar con:
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "assets/branding/app_icon.png"
+
+  android: true
+  ios: true
+
+  # Ícono adaptativo de Android: el azul marino de la marca como fondo.
+  adaptive_icon_background: "#0B1E4D"
+  adaptive_icon_foreground: "assets/branding/app_icon.png"
+
+  # iOS no admite canal alfa en el ícono: se aplana sobre el azul de marca.
+  remove_alpha_ios: true
+  background_color_ios: "#0B1E4D"

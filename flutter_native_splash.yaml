@@ -1,0 +1,15 @@
+# Splash screen nativo. Regenerar con:
+#   dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#EAF1FB"
+  image: assets/branding/splash_logo.png
+
+  android: true
+  ios: true
+  web: false
+
+  # Android 12+ usa una API de splash distinta y requiere su propio bloque.
+  android_12:
+    color: "#EAF1FB"
+    image: assets/branding/splash_logo.png
+    icon_background_color: "#EAF1FB"
