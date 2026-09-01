@@ -122,6 +122,32 @@ void main() {
       );
     });
 
+    test('retry repite inmediatamente la última búsqueda efectiva', () async {
+      var attempts = 0;
+      when(() => searchProducts(keyword: 'sony', page: 1)).thenAnswer((
+        _,
+      ) async {
+        attempts++;
+        if (attempts == 1) {
+          throw const NetworkException('Sin conexión');
+        }
+        return const <Product>[_sony];
+      });
+      final ProviderContainer container = createContainer();
+      final SearchNotifier notifier = notifierOf(container);
+
+      notifier.onSearchChanged('sony');
+      await settle();
+      expect(container.read(searchNotifierProvider), isA<SearchError>());
+
+      await notifier.retry();
+
+      final SearchLoaded state =
+          container.read(searchNotifierProvider) as SearchLoaded;
+      expect(state.products, const <Product>[_sony]);
+      verify(() => searchProducts(keyword: 'sony', page: 1)).called(2);
+    });
+
     test('resultado vacío es SearchLoaded y alcanza el máximo', () async {
       when(
         () => searchProducts(

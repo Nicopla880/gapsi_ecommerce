@@ -136,6 +136,17 @@ class SearchNotifier extends Notifier<SearchState> {
     }
   }
 
+  /// Reintenta inmediatamente la última búsqueda inicial efectiva.
+  Future<void> retry() {
+    final String query = _activeQuery;
+    if (query.isEmpty) return Future<void>.value();
+
+    _debouncer.cancel();
+    _latestQuery = query;
+    final int generation = ++_searchGeneration;
+    return _search(query, generation);
+  }
+
   Future<void> retryNextPage() => loadNextPage();
 
   bool _isCurrentIntent(String query, int generation) {
