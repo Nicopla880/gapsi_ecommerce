@@ -81,7 +81,7 @@ perfil **GAPSI**) que ya pasa el `--dart-define-from-file`.
 
 ```bash
 flutter analyze   # sin issues
-flutter test      # 110 pruebas
+flutter test      # 111 pruebas
 ```
 
 Para una sola suite o con cobertura:
@@ -236,6 +236,11 @@ Detalles del consumo:
   conservando el orden.
 - **Errores de página no destruyen resultados**: un fallo al paginar deja el
   listado intacto y ofrece reintentar.
+- **El detalle técnico del error no llega a la UI**: el mensaje interno de la
+  excepción (un código de estado, el texto crudo del API, el nombre de un
+  timeout) queda para los logs. La pantalla muestra una frase accionable según
+  el tipo de falla, porque a quien busca un producto un `SocketException` no le
+  dice qué hacer.
 
 ### Modelos — sin codegen
 

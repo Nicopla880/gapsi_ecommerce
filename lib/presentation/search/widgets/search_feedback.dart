@@ -83,7 +83,7 @@ class SearchMessage extends StatelessWidget {
     this.actionLabel,
     this.actionKey,
     this.onAction,
-    this.alignment = Alignment.center,
+    this.alignment = Alignment.topCenter,
     super.key,
   });
 
@@ -94,9 +94,11 @@ class SearchMessage extends StatelessWidget {
   final Key? actionKey;
   final VoidCallback? onAction;
 
-  /// Dónde se ancla el bloque dentro del espacio disponible. Los estados que
-  /// ocupan la pantalla entera se centran; los que reemplazan a una lista que
-  /// empieza arriba usan [Alignment.topCenter] para no saltar de posición.
+  /// Dónde se ancla el bloque dentro del espacio disponible.
+  ///
+  /// Arriba por defecto: todos estos estados reemplazan a una lista que empieza
+  /// en el borde superior, así que centrarlos hacía saltar el mensaje de
+  /// posición según qué estado estuviera en pantalla.
   final Alignment alignment;
 
   @override

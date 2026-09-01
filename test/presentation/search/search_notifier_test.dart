@@ -104,21 +104,51 @@ void main() {
       verify(() => searchProducts(keyword: 'nintendo', page: 1)).called(1);
     });
 
-    test('error inicial tipado se convierte en SearchError legible', () async {
+    test('el detalle tecnico del error no llega al usuario', () async {
       when(
         () => searchProducts(
           keyword: any(named: 'keyword'),
           page: any(named: 'page'),
         ),
-      ).thenThrow(const NetworkException('Sin conexión'));
+      ).thenThrow(const NetworkException('SocketException: errno = 61'));
       final ProviderContainer container = createContainer();
 
       notifierOf(container).onSearchChanged('sony');
       await settle();
 
+      final SearchError state =
+          container.read(searchNotifierProvider) as SearchError;
+
+      expect(state.message, 'Check your connection and try again.');
+      expect(state.message, isNot(contains('SocketException')));
+      expect(state.message, isNot(contains('errno')));
+    });
+
+    test('cada tipo de falla tiene su copy accionable en ingles', () async {
+      Future<String> messageFor(Object error) async {
+        final ProviderContainer container = createContainer();
+        when(
+          () => searchProducts(
+            keyword: any(named: 'keyword'),
+            page: any(named: 'page'),
+          ),
+        ).thenThrow(error);
+        container.read(searchNotifierProvider.notifier).onSearchChanged('tv');
+        await settle();
+        return (container.read(searchNotifierProvider) as SearchError).message;
+      }
+
       expect(
-        container.read(searchNotifierProvider),
-        const SearchError('Sin conexión'),
+        await messageFor(const ServerException('HTTP 503 upstream failure')),
+        "The store isn't responding right now. Please try again.",
+      );
+      expect(
+        await messageFor(const CacheException('HiveError: box closed')),
+        "We couldn't read your saved data.",
+      );
+      expect(
+        await messageFor(StateError('boom')),
+        'Something went wrong. Please try again.',
       );
     });
 
@@ -263,7 +293,7 @@ void main() {
       ).thenAnswer((_) async => const <Product>[_sony]);
       when(
         () => searchProducts(keyword: 'sony', page: 2),
-      ).thenThrow(const ServerException('Página no disponible'));
+      ).thenThrow(const ServerException('HTTP 500 at /wlm/walmart-search'));
       final ProviderContainer container = createContainer();
       final SearchNotifier notifier = notifierOf(container);
 
@@ -277,7 +307,11 @@ void main() {
       expect(state.currentPage, 1);
       expect(state.hasReachedMax, isFalse);
       expect(state.isLoadingNextPage, isFalse);
-      expect(state.nextPageError, 'Página no disponible');
+      expect(
+        state.nextPageError,
+        "The store isn't responding right now. Please try again.",
+      );
+      expect(state.nextPageError, isNot(contains('HTTP 500')));
     });
 
     test('hasReachedMax evita nuevas llamadas', () async {

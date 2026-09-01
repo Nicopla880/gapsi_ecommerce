@@ -175,16 +175,22 @@ class SearchNotifier extends Notifier<SearchState> {
     if (ref.mounted) ref.invalidate(searchHistoryProvider);
   }
 
+  /// Traduce un error a una frase accionable para quien está buscando un
+  /// producto.
+  ///
+  /// El mensaje interno de la excepción **no se propaga a propósito**: describe
+  /// la falla en términos de transporte —un código de estado, el texto crudo
+  /// que devuelva el API, el nombre de un timeout— y eso no le dice nada al
+  /// usuario ni le indica qué hacer. Ese detalle es para los logs; acá solo
+  /// importa el tipo de falla y si tiene sentido reintentar.
   String _readableMessage(Object error) {
     return switch (error) {
-      NetworkException(message: final String? message) =>
-        message ?? 'No se pudo conectar con el servidor.',
-      ServerException(message: final String? message) =>
-        message ?? 'El servidor no pudo completar la búsqueda.',
-      CacheException(message: final String? message) =>
-        message ?? 'No se pudo acceder al almacenamiento local.',
-      Failure(message: final String message) => message,
-      _ => 'Ocurrió un error inesperado. Intenta nuevamente.',
+      NetworkException() ||
+      NetworkFailure() => 'Check your connection and try again.',
+      ServerException() || ServerFailure() =>
+        "The store isn't responding right now. Please try again.",
+      CacheException() || CacheFailure() => "We couldn't read your saved data.",
+      _ => 'Something went wrong. Please try again.',
     };
   }
 }
