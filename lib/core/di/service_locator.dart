@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/datasources/local/favorites_local_datasource.dart';
@@ -24,9 +25,15 @@ Future<void> setupServiceLocator() async {
   // Core
   getIt.registerLazySingleton<DioClient>(DioClient.new);
 
-  // Externas
+  // Externas. Dos motores de persistencia, cada uno donde corresponde:
+  // `shared_preferences` para la preferencia plana (historial) y Hive para la
+  // coleccion de entidades (favoritos).
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   getIt.registerLazySingleton<SharedPreferences>(() => prefs);
+
+  final Box<dynamic> favoritesBox = await Hive.openBox<dynamic>(
+    FavoritesLocalDataSourceImpl.boxName,
+  );
 
   // Datasources
   getIt.registerLazySingleton<WalmartRemoteDataSource>(
@@ -36,7 +43,7 @@ Future<void> setupServiceLocator() async {
     () => SearchHistoryLocalDataSourceImpl(getIt<SharedPreferences>()),
   );
   getIt.registerLazySingleton<FavoritesLocalDataSource>(
-    () => FavoritesLocalDataSourceImpl(getIt<SharedPreferences>()),
+    () => FavoritesLocalDataSourceImpl(favoritesBox),
   );
 
   // Repositorios: el domain solo conoce la interfaz.

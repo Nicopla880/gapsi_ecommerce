@@ -5,6 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/errors/exceptions.dart';
 
 /// Persistencia local del historial de búsquedas.
+///
+/// Va sobre `shared_preferences` y no sobre Hive a propósito: el historial es
+/// una lista plana de strings sin estructura, sin relaciones y sin consultas —
+/// una preferencia del usuario, no un registro. Los favoritos, que sí son
+/// entidades con campos, viven en Hive (ver [FavoritesLocalDataSourceImpl]).
 abstract class SearchHistoryLocalDataSource {
   Future<List<String>> getSearchHistory();
   Future<void> saveSearchTerm(String term);

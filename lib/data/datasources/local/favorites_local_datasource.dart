@@ -1,6 +1,4 @@
-import 'dart:convert';
-
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
 
 import '../../../core/errors/exceptions.dart';
 import '../../../domain/entities/favorites_collection.dart';
@@ -11,78 +9,74 @@ abstract class FavoritesLocalDataSource {
   Future<void> saveFavorites(FavoritesCollection favorites);
 }
 
+/// Implementación sobre Hive.
+///
+/// Los favoritos se guardan como snapshots mínimos de producto y no como IDs
+/// sueltos, para que la colección se pueda renderizar sin volver a la red.
+/// Hive almacena mapas y listas de primitivos de forma nativa, así que el
+/// snapshot no necesita adaptador generado.
 class FavoritesLocalDataSourceImpl implements FavoritesLocalDataSource {
-  const FavoritesLocalDataSourceImpl(this._prefs);
+  const FavoritesLocalDataSourceImpl(this._box);
 
-  final SharedPreferences _prefs;
+  final Box<dynamic> _box;
 
-  static const String _storageKey = 'favorite_products_v2';
+  static const String boxName = 'favorites';
+  static const String _storageKey = 'products_v2';
+
+  /// Clave del formato anterior, que solo guardaba IDs. Se sigue leyendo hasta
+  /// poder completar el snapshot sin inventar datos.
   static const String _legacyStorageKey = 'favorite_product_ids';
 
   @override
   Future<FavoritesCollection> getFavorites() async {
-    final String? raw = _prefs.getString(_storageKey);
-    if (raw == null || raw.isEmpty) return _readLegacyFavorites();
+    final Object? stored = _box.get(_storageKey);
+    if (stored == null) return _readLegacyFavorites();
 
-    try {
-      final Object? decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) {
-        throw const CacheException(
-          'Favoritos almacenados con formato inválido.',
-        );
-      }
-      final Object? rawProducts = decoded['products'];
-      final Object? rawLegacyIds = decoded['legacyIds'];
-      if (rawProducts is! List || rawLegacyIds is! List) {
-        throw const CacheException(
-          'Favoritos almacenados con formato incompleto.',
-        );
-      }
-      return FavoritesCollection(
-        products: rawProducts
-            .whereType<Map>()
-            .map(
-              (Map<dynamic, dynamic> json) =>
-                  _productFromJson(Map<String, dynamic>.from(json)),
-            )
-            .whereType<Product>(),
-        legacyIds: rawLegacyIds.whereType<String>(),
-      );
-    } on FormatException catch (error) {
-      throw CacheException('Favoritos ilegibles: ${error.message}');
+    if (stored is! Map) {
+      throw const CacheException('Favoritos almacenados con formato inválido.');
     }
+    final Object? rawProducts = stored['products'];
+    final Object? rawLegacyIds = stored['legacyIds'];
+    if (rawProducts is! List || rawLegacyIds is! List) {
+      throw const CacheException(
+        'Favoritos almacenados con formato incompleto.',
+      );
+    }
+
+    return FavoritesCollection(
+      products: rawProducts
+          .whereType<Map<dynamic, dynamic>>()
+          .map(_productFromStored)
+          .whereType<Product>(),
+      legacyIds: rawLegacyIds.whereType<String>(),
+    );
   }
 
   @override
   Future<void> saveFavorites(FavoritesCollection favorites) async {
-    final bool saved = await _prefs.setString(
-      _storageKey,
-      jsonEncode(<String, Object>{
+    try {
+      await _box.put(_storageKey, <String, Object>{
         'version': 2,
-        'products': favorites.products.map(_productToJson).toList(),
+        'products': favorites.products.map(_productToStored).toList(),
         'legacyIds': favorites.legacyIds.toList()..sort(),
-      }),
-    );
-    if (!saved) {
-      throw const CacheException('No se pudieron guardar los favoritos.');
+      });
+      await _box.delete(_legacyStorageKey);
+    } on HiveError catch (error) {
+      throw CacheException(
+        'No se pudieron guardar los favoritos: ${error.message}',
+      );
     }
-    await _prefs.remove(_legacyStorageKey);
   }
 
   FavoritesCollection _readLegacyFavorites() {
-    final String? raw = _prefs.getString(_legacyStorageKey);
-    if (raw == null || raw.isEmpty) return FavoritesCollection();
-    try {
-      final Object? decoded = jsonDecode(raw);
-      if (decoded is! List) return FavoritesCollection();
-      return FavoritesCollection(legacyIds: decoded.whereType<String>());
-    } on FormatException catch (error) {
-      throw CacheException('Favoritos legacy ilegibles: ${error.message}');
-    }
+    final Object? stored = _box.get(_legacyStorageKey);
+    if (stored == null) return FavoritesCollection();
+    if (stored is! List) return FavoritesCollection();
+    return FavoritesCollection(legacyIds: stored.whereType<String>());
   }
 }
 
-Map<String, Object?> _productToJson(Product product) => <String, Object?>{
+Map<String, Object?> _productToStored(Product product) => <String, Object?>{
   'id': product.id,
   'title': product.title,
   'price': product.price,
@@ -90,19 +84,19 @@ Map<String, Object?> _productToJson(Product product) => <String, Object?>{
   'description': product.description,
 };
 
-Product? _productFromJson(Map<String, dynamic> json) {
-  final Object? rawId = json['id'];
+Product? _productFromStored(Map<dynamic, dynamic> stored) {
+  final Object? rawId = stored['id'];
   if (rawId is! String || rawId.trim().isEmpty) return null;
-  final Object? rawPrice = json['price'];
+  final Object? rawPrice = stored['price'];
   return Product(
     id: rawId.trim(),
-    title: json['title'] is String ? json['title'] as String : '',
+    title: stored['title'] is String ? stored['title'] as String : '',
     price: rawPrice is num ? rawPrice.toDouble() : null,
-    thumbnailUrl: json['thumbnailUrl'] is String
-        ? json['thumbnailUrl'] as String
+    thumbnailUrl: stored['thumbnailUrl'] is String
+        ? stored['thumbnailUrl'] as String
         : null,
-    description: json['description'] is String
-        ? json['description'] as String
+    description: stored['description'] is String
+        ? stored['description'] as String
         : null,
   );
 }

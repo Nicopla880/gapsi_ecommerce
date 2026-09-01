@@ -1,11 +1,11 @@
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gapsi_ecommerce/data/datasources/local/favorites_local_datasource.dart';
 import 'package:gapsi_ecommerce/data/repositories/favorites_repository_impl.dart';
 import 'package:gapsi_ecommerce/domain/entities/favorites_collection.dart';
 import 'package:gapsi_ecommerce/domain/entities/product.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
 
 const Product _console = Product(
   id: 'item-1',
@@ -24,14 +24,26 @@ const Product _controller = Product(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  late SharedPreferences preferences;
+  late Directory tempDir;
+  late Box<dynamic> box;
   late FavoritesLocalDataSourceImpl localDataSource;
   late FavoritesRepositoryImpl repository;
 
+  setUpAll(() async {
+    // Hive escribe en disco: cada corrida usa su propio directorio temporal.
+    tempDir = await Directory.systemTemp.createTemp('gapsi_favorites_test');
+    Hive.init(tempDir.path);
+  });
+
+  tearDownAll(() async {
+    await Hive.close();
+    await tempDir.delete(recursive: true);
+  });
+
   setUp(() async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    preferences = await SharedPreferences.getInstance();
-    localDataSource = FavoritesLocalDataSourceImpl(preferences);
+    box = await Hive.openBox<dynamic>(FavoritesLocalDataSourceImpl.boxName);
+    await box.clear();
+    localDataSource = FavoritesLocalDataSourceImpl(box);
     repository = FavoritesRepositoryImpl(localDataSource);
   });
 
@@ -47,8 +59,13 @@ void main() {
     await repository.setFavoriteStatus(_console, isFavorite: true);
     await repository.setFavoriteStatus(_controller, isFavorite: true);
 
+    // Reabrir el box desde disco prueba que el snapshot sobrevive al proceso.
+    await box.close();
+    final Box<dynamic> reopened = await Hive.openBox<dynamic>(
+      FavoritesLocalDataSourceImpl.boxName,
+    );
     final FavoritesRepositoryImpl recreatedRepository = FavoritesRepositoryImpl(
-      FavoritesLocalDataSourceImpl(preferences),
+      FavoritesLocalDataSourceImpl(reopened),
     );
 
     final FavoritesCollection restored = await recreatedRepository
@@ -68,13 +85,7 @@ void main() {
   });
 
   test('lee formato legacy de IDs sin fallar ni inventar Products', () async {
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      'favorite_product_ids': jsonEncode(<String>['item-1', 'item-1']),
-    });
-    preferences = await SharedPreferences.getInstance();
-    repository = FavoritesRepositoryImpl(
-      FavoritesLocalDataSourceImpl(preferences),
-    );
+    await box.put('favorite_product_ids', <String>['item-1', 'item-1']);
 
     final FavoritesCollection restored = await repository.getFavorites();
 
@@ -84,13 +95,7 @@ void main() {
   });
 
   test('hidratar un ID legacy migra a snapshot renderizable', () async {
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      'favorite_product_ids': jsonEncode(<String>['item-1']),
-    });
-    preferences = await SharedPreferences.getInstance();
-    repository = FavoritesRepositoryImpl(
-      FavoritesLocalDataSourceImpl(preferences),
-    );
+    await box.put('favorite_product_ids', <String>['item-1']);
 
     await repository.setFavoriteStatus(_console, isFavorite: true);
     final FavoritesCollection migrated = await repository.getFavorites();
