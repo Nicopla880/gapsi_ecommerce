@@ -154,7 +154,9 @@ class DiscoveryHeader extends StatelessWidget {
     required this.quickSearches,
     required this.activeKeyword,
     required this.favoritesSelected,
+    required this.recentSelected,
     required this.onFavoritesSelected,
+    required this.onRecentSelected,
     required this.onSearchSelected,
     super.key,
   });
@@ -163,7 +165,9 @@ class DiscoveryHeader extends StatelessWidget {
   final List<({String label, String keyword})> quickSearches;
   final String activeKeyword;
   final bool favoritesSelected;
+  final bool recentSelected;
   final VoidCallback onFavoritesSelected;
+  final VoidCallback onRecentSelected;
   final ValueChanged<String> onSearchSelected;
 
   @override
@@ -197,6 +201,12 @@ class DiscoveryHeader extends StatelessWidget {
                           : Icons.favorite_border,
                       selected: favoritesSelected,
                       onTap: onFavoritesSelected,
+                    ),
+                    _DiscoveryItem(
+                      label: 'Recent',
+                      icon: Icons.history_rounded,
+                      selected: recentSelected,
+                      onTap: onRecentSelected,
                     ),
                     ...quickSearches.map((item) {
                       final bool selected = activeKeyword == item.keyword;

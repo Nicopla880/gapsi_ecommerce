@@ -143,16 +143,23 @@ void main() {
   });
 
   testWidgets(
-    'discovery muestra Favorites y elimina All y Recent persistente',
+    'discovery ofrece Favorites y Recent como atajos, sin All ni Recent fijo',
     (WidgetTester tester) async {
       await _pumpSearchScreen(tester, history: const <String>['Nintendo']);
 
       expect(find.text('Favorites'), findsOneWidget);
+      expect(find.text('Recent'), findsOneWidget);
       expect(
         find.byKey(const Key('quickSearch-Favorites')).hitTestable(),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const Key('quickSearch-Recent')).hitTestable(),
+        findsOneWidget,
+      );
       expect(find.text('All'), findsNothing);
+      // El atajo es una entrada del header, no la fila fija con la última
+      // consulta que ocupaba una linea entera.
       expect(find.text('Recent: Nintendo'), findsNothing);
       expect(find.byKey(const Key('recentSearchRow')), findsNothing);
 
@@ -230,27 +237,36 @@ void main() {
     expect(notifier.searchIntents.last, isEmpty);
   });
 
-  testWidgets('foco muestra historial y tap ejecuta búsqueda persistida', (
+  testWidgets('Recent del header abre el historial y ejecuta la búsqueda', (
     WidgetTester tester,
   ) async {
     final _FakeSearchNotifier notifier = await _pumpSearchScreen(
       tester,
+      initialState: SearchLoaded(
+        products: const <Product>[_console],
+        currentPage: 1,
+        hasReachedMax: true,
+      ),
       history: const <String>['Nintendo'],
     );
 
-    expect(find.byKey(const Key('focusedRecentSearches')), findsNothing);
-    await tester.tap(find.byKey(const Key('searchField')));
+    expect(find.byKey(const Key('discoveryRecentSearches')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('quickSearch-Recent')));
     await tester.pump();
 
-    expect(find.byKey(const Key('focusedRecentSearches')), findsOneWidget);
-    expect(find.byKey(const Key('history-Nintendo')), findsOneWidget);
+    // El historial es alcanzable sin tener que vaciar la búsqueda en curso.
+    expect(find.byKey(const Key('discoveryRecentSearches')), findsOneWidget);
+    expect(find.byKey(const Key('productGrid')), findsNothing);
+    expect(notifier.searchIntents, isEmpty);
+
     await tester.tap(find.byKey(const Key('history-Nintendo')));
     await tester.pump();
 
     expect(_searchController(tester).text, 'Nintendo');
     expect(notifier.searchIntents.last, 'Nintendo');
+    expect(find.byKey(const Key('discoveryRecentSearches')), findsNothing);
   });
-
   testWidgets('discovery tolera escala de texto alta sin overflow', (
     WidgetTester tester,
   ) async {
@@ -318,39 +334,41 @@ void main() {
     expect(notifier.searchIntents.last, 'Sony');
   });
 
-  testWidgets(
-    'foco preserva SearchLoaded y al salir restaura grid sin request',
-    (WidgetTester tester) async {
-      final SearchLoaded loaded = SearchLoaded(
-        products: const <Product>[_console],
-        currentPage: 1,
-        hasReachedMax: true,
-      );
-      final _FakeSearchNotifier notifier = await _pumpSearchScreen(
-        tester,
-        initialState: loaded,
-        history: const <String>['Nintendo'],
-      );
+  testWidgets('escribir no oculta la grilla: el debounce se ve en pantalla', (
+    WidgetTester tester,
+  ) async {
+    final SearchLoaded loaded = SearchLoaded(
+      products: const <Product>[_console],
+      currentPage: 1,
+      hasReachedMax: true,
+    );
+    final _FakeSearchNotifier notifier = await _pumpSearchScreen(
+      tester,
+      initialState: loaded,
+      history: const <String>['Nintendo'],
+    );
 
-      await tester.tap(find.byKey(const Key('searchField')));
-      await tester.pump();
-      expect(find.byKey(const Key('focusedRecentSearches')), findsOneWidget);
-      expect(find.byKey(const Key('productGrid')), findsNothing);
-      expect(notifier.state, same(loaded));
+    await tester.tap(find.byKey(const Key('searchField')));
+    await tester.pump();
 
+    // Enfocar el campo no cambia de contenido: los resultados siguen ahí,
+    // así se ve la grilla actualizarse mientras se teclea.
+    expect(find.byKey(const Key('productGrid')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('searchField')), 'nin');
+    await tester.pump();
+
+    expect(find.byKey(const Key('productGrid')), findsOneWidget);
+    expect(find.text('Nintendo Switch OLED Console'), findsOneWidget);
+    expect(notifier.searchIntents, <String>['nin']);
+    expect(
       tester
           .widget<TextField>(find.byKey(const Key('searchField')))
           .focusNode!
-          .unfocus();
-      await tester.pump();
-
-      expect(find.byKey(const Key('productGrid')), findsOneWidget);
-      expect(find.text('Nintendo Switch OLED Console'), findsOneWidget);
-      expect(notifier.state, same(loaded));
-      expect(notifier.searchIntents, isEmpty);
-    },
-  );
-
+          .hasFocus,
+      isTrue,
+    );
+  });
   testWidgets('Favorites vacío no busca remotamente y muestra empty state', (
     WidgetTester tester,
   ) async {
@@ -445,7 +463,7 @@ void main() {
     },
   );
 
-  testWidgets('foco desde Favorites restaura colección al cancelar', (
+  testWidgets('volver de Recent a Favorites no dispara una búsqueda', (
     WidgetTester tester,
   ) async {
     final _FakeSearchNotifier notifier = await _pumpSearchScreen(
@@ -455,23 +473,20 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
     await tester.pump();
+    expect(find.byKey(const Key('favoritesGrid')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('searchField')));
+    await tester.tap(find.byKey(const Key('quickSearch-Recent')));
     await tester.pump();
-    expect(find.byKey(const Key('focusedRecentSearches')), findsOneWidget);
+    expect(find.byKey(const Key('discoveryRecentSearches')), findsOneWidget);
     expect(find.byKey(const Key('favoritesGrid')), findsNothing);
 
-    tester
-        .widget<TextField>(find.byKey(const Key('searchField')))
-        .focusNode!
-        .unfocus();
+    await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
     await tester.pump();
 
     expect(find.byKey(const Key('favoritesGrid')), findsOneWidget);
     expect(notifier.searchIntents, isEmpty);
   });
-
-  testWidgets('recent y escritura salen de Favorites', (
+  testWidgets('escribir sale de Favorites y vuelve a los resultados', (
     WidgetTester tester,
   ) async {
     final _FakeSearchNotifier notifier = await _pumpSearchScreen(
@@ -481,27 +496,19 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('searchField')));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('history-Nintendo')));
-    await tester.pump();
+    expect(find.byKey(const Key('favoritesGrid')), findsOneWidget);
 
-    expect(notifier.searchIntents.last, 'Nintendo');
-    expect(find.byKey(const Key('favoritesGrid')), findsNothing);
-
-    await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('searchField')));
     await tester.enterText(find.byKey(const Key('searchField')), 'Sony');
     await tester.pump();
 
     expect(notifier.searchIntents.last, 'Sony');
+    expect(find.byKey(const Key('favoritesGrid')), findsNothing);
+
     final Semantics favorites = tester.widget<Semantics>(
       find.byKey(const Key('quickSearchSemantics-Favorites')),
     );
     expect(favorites.properties.selected, isFalse);
   });
-
   testWidgets('loading conserva el header primario', (
     WidgetTester tester,
   ) async {

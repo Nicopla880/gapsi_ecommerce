@@ -15,6 +15,13 @@ import 'widgets/product_card.dart';
 import 'widgets/search_feedback.dart';
 import 'widgets/search_headers.dart';
 
+/// Qué se está mostrando debajo del header.
+///
+/// [results] es el modo normal: lo que diga el `SearchNotifier`. Los otros dos
+/// son atajos del header de descubrimiento y se resuelven enteros en local, sin
+/// tocar la búsqueda en curso.
+enum _DiscoveryMode { results, favorites, recent }
+
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({this.onProductTap, super.key});
 
@@ -40,14 +47,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   late final TextEditingController _searchController;
   late final ScrollController _scrollController;
   late final FocusNode _searchFocusNode;
-  bool _favoritesMode = false;
+  _DiscoveryMode _mode = _DiscoveryMode.results;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
     _scrollController = ScrollController()..addListener(_onScroll);
-    _searchFocusNode = FocusNode()..addListener(_onSearchFocusChanged);
+    _searchFocusNode = FocusNode();
   }
 
   @override
@@ -56,27 +63,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ..removeListener(_onScroll)
       ..dispose();
     _searchController.dispose();
-    _searchFocusNode
-      ..removeListener(_onSearchFocusChanged)
-      ..dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
   void _onScroll() {
-    if (_favoritesMode || _searchFocusNode.hasFocus) return;
+    // Favoritos y recientes son listas locales: no hay página siguiente que
+    // pedir.
+    if (_mode != _DiscoveryMode.results) return;
     if (!_scrollController.hasClients) return;
     if (_scrollController.position.extentAfter < _paginationThreshold) {
       unawaited(ref.read(searchNotifierProvider.notifier).loadNextPage());
     }
   }
 
+  /// Escribir siempre devuelve a los resultados, sin quitar el foco: el usuario
+  /// ve la grilla actualizarse mientras teclea, que es el punto del debounce.
   void _onSearchChanged(String value) {
-    setState(() => _favoritesMode = false);
+    setState(() => _mode = _DiscoveryMode.results);
     ref.read(searchNotifierProvider.notifier).onSearchChanged(value);
-  }
-
-  void _onSearchFocusChanged() {
-    if (mounted) setState(() {});
   }
 
   void _runSearch(String keyword) {
@@ -85,20 +90,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       selection: TextSelection.collapsed(offset: keyword.length),
     );
     _searchFocusNode.unfocus();
-    setState(() => _favoritesMode = false);
+    setState(() => _mode = _DiscoveryMode.results);
     ref.read(searchNotifierProvider.notifier).onSearchChanged(keyword);
   }
 
   void _clearSearch() {
     _searchController.clear();
-    setState(() => _favoritesMode = false);
+    setState(() => _mode = _DiscoveryMode.results);
     ref.read(searchNotifierProvider.notifier).onSearchChanged('');
   }
 
-  void _showFavorites() {
+  /// Los atajos del header no notifican al `SearchNotifier`: vacían el campo
+  /// para que no queden dos entradas marcadas a la vez, pero dejan la búsqueda
+  /// en curso intacta por si el usuario vuelve.
+  void _showDiscovery(_DiscoveryMode mode) {
     _searchController.clear();
     _searchFocusNode.unfocus();
-    setState(() => _favoritesMode = true);
+    setState(() => _mode = mode);
   }
 
   void _onProductSelected(Product product) {
@@ -193,8 +201,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       activeKeyword: _searchController.text
                           .trim()
                           .toLowerCase(),
-                      favoritesSelected: _favoritesMode,
-                      onFavoritesSelected: _showFavorites,
+                      favoritesSelected: _mode == _DiscoveryMode.favorites,
+                      recentSelected: _mode == _DiscoveryMode.recent,
+                      onFavoritesSelected: () =>
+                          _showDiscovery(_DiscoveryMode.favorites),
+                      onRecentSelected: () =>
+                          _showDiscovery(_DiscoveryMode.recent),
                       onSearchSelected: _runSearch,
                     ),
                   ),
@@ -213,8 +225,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     AsyncValue<List<String>> history,
     AsyncValue<FavoritesCollection> favorites,
   ) {
-    if (_searchFocusNode.hasFocus) return <Widget>[_focusContent(history)];
-    if (_favoritesMode) return _favoritesContent(favorites);
+    switch (_mode) {
+      case _DiscoveryMode.recent:
+        return <Widget>[_recentContent(history)];
+      case _DiscoveryMode.favorites:
+        return _favoritesContent(favorites);
+      case _DiscoveryMode.results:
+        break;
+    }
 
     if (searchState case SearchLoaded(:final products)) {
       if (favorites case AsyncData<FavoritesCollection>(
@@ -289,7 +307,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     };
   }
 
-  Widget _focusContent(AsyncValue<List<String>> history) {
+  /// Historial abierto desde el header. Es el mismo contenido que el estado
+  /// inicial, pero accesible sin tener que vaciar la búsqueda.
+  Widget _recentContent(AsyncValue<List<String>> history) {
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(
         GapsiSpacing.xl,
@@ -301,13 +321,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         child: history.when(
           data: (List<String> searches) => searches.isEmpty
               ? const SearchMessage(
-                  key: Key('emptyFocusedHistory'),
+                  key: Key('emptyRecentSearches'),
                   icon: Icons.history_toggle_off_rounded,
-                  title: 'Start typing to search products.',
-                  message: '',
+                  title: 'No recent searches',
+                  message: 'The words you search for will show up here.',
                 )
               : RecentSearches(
-                  key: const Key('focusedRecentSearches'),
+                  key: const Key('discoveryRecentSearches'),
                   searches: searches,
                   onSelected: _runSearch,
                 ),
@@ -319,8 +339,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           error: (Object error, StackTrace stackTrace) => const SearchMessage(
             icon: Icons.history_toggle_off_rounded,
-            title: 'Start typing to search products.',
-            message: '',
+            title: 'No recent searches',
+            message: 'The words you search for will show up here.',
           ),
         ),
       ),
