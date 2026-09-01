@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 abstract final class SearchHeaderLayout {
@@ -5,6 +7,69 @@ abstract final class SearchHeaderLayout {
   static const double primaryContentExtent = 72;
   static const double discoveryQuickOnlyExtent = 60;
   static const double discoveryWithRecentExtent = 96;
+
+  static const double _outerVerticalPadding = 12;
+  static const double _recentBaseExtent = 36;
+  static const double _recentQuickGap = 4;
+  static const double _quickOnlyBaseExtent = 48;
+  static const double _quickWithRecentBaseExtent = 44;
+  static const double _quickVerticalPadding = 16;
+  static const double _quickIndicatorGap = 5;
+  static const double _quickIndicatorExtent = 2;
+  static const double _recentTextBreathingRoom = 8;
+
+  static DiscoveryHeaderMetrics discoveryMetrics(
+    BuildContext context, {
+    required bool hasRecent,
+  }) {
+    final TextPainter labelPainter = TextPainter(
+      text: TextSpan(
+        text: 'Ag',
+        style:
+            Theme.of(context).textTheme.labelLarge ??
+            const TextStyle(fontSize: 14),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final double labelHeight = labelPainter.height;
+    labelPainter.dispose();
+
+    final double quickSearchRowExtent = math.max(
+      hasRecent ? _quickWithRecentBaseExtent : _quickOnlyBaseExtent,
+      labelHeight +
+          _quickVerticalPadding +
+          _quickIndicatorGap +
+          _quickIndicatorExtent,
+    );
+    final double recentRowExtent = hasRecent
+        ? math.max(_recentBaseExtent, labelHeight + _recentTextBreathingRoom)
+        : 0;
+    final double extent =
+        _outerVerticalPadding +
+        quickSearchRowExtent +
+        (hasRecent ? recentRowExtent + _recentQuickGap : 0);
+
+    return DiscoveryHeaderMetrics(
+      extent: extent,
+      recentRowExtent: recentRowExtent,
+      quickSearchRowExtent: quickSearchRowExtent,
+    );
+  }
+}
+
+@immutable
+final class DiscoveryHeaderMetrics {
+  const DiscoveryHeaderMetrics({
+    required this.extent,
+    required this.recentRowExtent,
+    required this.quickSearchRowExtent,
+  });
+
+  final double extent;
+  final double recentRowExtent;
+  final double quickSearchRowExtent;
 }
 
 class PrimarySearchHeader extends StatelessWidget {
@@ -111,6 +176,7 @@ class PrimarySearchHeader extends StatelessWidget {
 
 class DiscoveryHeader extends StatelessWidget {
   const DiscoveryHeader({
+    required this.metrics,
     required this.recentSearch,
     required this.quickSearches,
     required this.activeKeyword,
@@ -119,6 +185,7 @@ class DiscoveryHeader extends StatelessWidget {
     super.key,
   });
 
+  final DiscoveryHeaderMetrics metrics;
   final String? recentSearch;
   final List<({String label, String keyword})> quickSearches;
   final String activeKeyword;
@@ -145,7 +212,7 @@ class DiscoveryHeader extends StatelessWidget {
             if (recentSearch case final String recent) ...<Widget>[
               SizedBox(
                 key: const Key('recentSearchRow'),
-                height: 36,
+                height: metrics.recentRowExtent,
                 child: TextButton.icon(
                   key: const Key('recentSearchShortcut'),
                   onPressed: () => onSearchSelected(recent),
@@ -163,7 +230,8 @@ class DiscoveryHeader extends StatelessWidget {
               ),
               const SizedBox(height: 4),
             ],
-            Expanded(
+            SizedBox(
+              height: metrics.quickSearchRowExtent,
               child: SingleChildScrollView(
                 key: const Key('quickSearchList'),
                 scrollDirection: Axis.horizontal,

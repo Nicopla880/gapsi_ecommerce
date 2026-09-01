@@ -46,6 +46,7 @@ Future<_FakeSearchNotifier> _pumpSearchScreen(
   SearchState initialState = const SearchInitial(),
   List<String> history = const <String>[],
   ValueChanged<Product>? onProductTap,
+  TextScaler? textScaler,
 }) async {
   late _FakeSearchNotifier notifier;
   await tester.pumpWidget(
@@ -64,6 +65,13 @@ Future<_FakeSearchNotifier> _pumpSearchScreen(
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B1E4D)),
           useMaterial3: true,
         ),
+        builder: (BuildContext context, Widget? child) {
+          if (textScaler == null) return child!;
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child!,
+          );
+        },
         home: SearchScreen(onProductTap: onProductTap),
       ),
     ),
@@ -201,6 +209,54 @@ void main() {
 
     expect(_searchController(tester).text, 'Nintendo');
     expect(notifier.searchIntents.last, 'Nintendo');
+  });
+
+  testWidgets('discovery tolera escala de texto alta sin overflow', (
+    WidgetTester tester,
+  ) async {
+    await _pumpSearchScreen(
+      tester,
+      initialState: SearchLoaded(
+        products: const <Product>[_console],
+        currentPage: 1,
+        hasReachedMax: true,
+      ),
+      history: const <String>['Nintendo'],
+      textScaler: const TextScaler.linear(2),
+    );
+
+    expect(find.text('Recent: Nintendo'), findsOneWidget);
+    expect(find.text('Gaming'), findsOneWidget);
+    expect(find.byKey(const Key('searchField')), findsOneWidget);
+    expect(find.text('Nintendo Switch OLED Console'), findsOneWidget);
+    expect(find.text(r'$349.99'), findsOneWidget);
+    final SliverAppBar appBar = tester.widget<SliverAppBar>(
+      find.byKey(const Key('searchSliverAppBar')),
+    );
+    expect(
+      appBar.expandedHeight! - appBar.collapsedHeight!,
+      greaterThan(SearchHeaderLayout.discoveryWithRecentExtent),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('escala reducida conserva el tamaño visual mínimo', (
+    WidgetTester tester,
+  ) async {
+    await _pumpSearchScreen(
+      tester,
+      history: const <String>['Nintendo'],
+      textScaler: const TextScaler.linear(0.8),
+    );
+
+    final SliverAppBar appBar = tester.widget<SliverAppBar>(
+      find.byKey(const Key('searchSliverAppBar')),
+    );
+    expect(
+      appBar.expandedHeight! - appBar.collapsedHeight!,
+      SearchHeaderLayout.discoveryWithRecentExtent,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('estado inicial presenta todo el historial real', (

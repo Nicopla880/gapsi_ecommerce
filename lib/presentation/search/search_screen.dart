@@ -95,9 +95,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         value.first,
       _ => null,
     };
-    final double discoveryHeaderExtent = recentSearch == null
-        ? SearchHeaderLayout.discoveryQuickOnlyExtent
-        : SearchHeaderLayout.discoveryWithRecentExtent;
+    final DiscoveryHeaderMetrics discoveryMetrics =
+        SearchHeaderLayout.discoveryMetrics(
+          context,
+          hasRecent: recentSearch != null,
+        );
+    final double discoveryHeaderExtent = discoveryMetrics.extent;
     final double collapsedHeaderExtent =
         SearchHeaderLayout.primaryContentExtent + topInset;
     final SystemUiOverlayStyle overlayStyle =
@@ -145,6 +148,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   child: SizedBox(
                     height: discoveryHeaderExtent,
                     child: DiscoveryHeader(
+                      metrics: discoveryMetrics,
                       recentSearch: recentSearch,
                       quickSearches: _quickSearches,
                       activeKeyword: _searchController.text
