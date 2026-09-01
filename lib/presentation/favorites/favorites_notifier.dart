@@ -2,50 +2,52 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/usecases/get_favorite_ids.dart';
+import '../../domain/entities/favorites_collection.dart';
+import '../../domain/entities/product.dart';
+import '../../domain/usecases/get_favorites.dart';
 import '../../domain/usecases/set_favorite_status.dart';
 import 'favorites_dependencies.dart';
 
-class FavoritesNotifier extends AsyncNotifier<Set<String>> {
-  late GetFavoriteIds _getFavoriteIds;
+class FavoritesNotifier extends AsyncNotifier<FavoritesCollection> {
+  late GetFavorites _getFavorites;
   late SetFavoriteStatus _setFavoriteStatus;
 
   final Set<String> _pendingIds = <String>{};
   Future<void> _writeQueue = Future<void>.value();
 
   @override
-  Future<Set<String>> build() async {
-    _getFavoriteIds = ref.watch(getFavoriteIdsUseCaseProvider);
+  Future<FavoritesCollection> build() async {
+    _getFavorites = ref.watch(getFavoritesUseCaseProvider);
     _setFavoriteStatus = ref.watch(setFavoriteStatusUseCaseProvider);
-    return Set<String>.unmodifiable(await _getFavoriteIds());
+    return _getFavorites();
   }
 
-  Future<bool> toggleFavorite(String productId) async {
-    final String normalizedId = productId.trim();
-    final Set<String>? currentIds = switch (state) {
-      AsyncData<Set<String>>(:final value) => value,
+  Future<bool> toggleFavorite(Product product) async {
+    final String normalizedId = product.id.trim();
+    final FavoritesCollection? current = switch (state) {
+      AsyncData<FavoritesCollection>(:final value) => value,
       _ => null,
     };
-    if (normalizedId.isEmpty || currentIds == null) return false;
+    if (normalizedId.isEmpty || current == null) return false;
     if (!_pendingIds.add(normalizedId)) return true;
 
-    final bool wasFavorite = currentIds.contains(normalizedId);
-    state = AsyncData<Set<String>>(
-      _updatedIds(currentIds, normalizedId, add: !wasFavorite),
+    final bool wasFavorite = current.contains(normalizedId);
+    state = AsyncData<FavoritesCollection>(
+      current.setFavorite(product, value: !wasFavorite),
     );
 
     final Future<bool> operation = _writeQueue.then<bool>((_) async {
       try {
-        await _setFavoriteStatus(normalizedId, isFavorite: !wasFavorite);
+        await _setFavoriteStatus(product, isFavorite: !wasFavorite);
         return true;
       } catch (_) {
-        final Set<String>? latestIds = switch (state) {
-          AsyncData<Set<String>>(:final value) => value,
+        final FavoritesCollection? latest = switch (state) {
+          AsyncData<FavoritesCollection>(:final value) => value,
           _ => null,
         };
-        if (latestIds != null) {
-          state = AsyncData<Set<String>>(
-            _updatedIds(latestIds, normalizedId, add: wasFavorite),
+        if (latest != null) {
+          state = AsyncData<FavoritesCollection>(
+            latest.setFavorite(product, value: wasFavorite),
           );
         }
         return false;
@@ -56,14 +58,35 @@ class FavoritesNotifier extends AsyncNotifier<Set<String>> {
     _writeQueue = operation.then<void>((bool _) {});
     return operation;
   }
-}
 
-Set<String> _updatedIds(Set<String> source, String id, {required bool add}) {
-  final Set<String> updated = Set<String>.of(source);
-  if (add) {
-    updated.add(id);
-  } else {
-    updated.remove(id);
+  Future<void> hydrateKnownProducts(Iterable<Product> products) async {
+    final FavoritesCollection? current = switch (state) {
+      AsyncData<FavoritesCollection>(:final value) => value,
+      _ => null,
+    };
+    if (current == null || current.legacyIds.isEmpty) return;
+
+    for (final Product product in products) {
+      if (current.legacyIds.contains(product.id)) {
+        await _hydrateLegacyProduct(product);
+      }
+    }
   }
-  return Set<String>.unmodifiable(updated);
+
+  Future<void> _hydrateLegacyProduct(Product product) async {
+    final FavoritesCollection? current = switch (state) {
+      AsyncData<FavoritesCollection>(:final value) => value,
+      _ => null,
+    };
+    if (current == null || !current.legacyIds.contains(product.id)) return;
+
+    state = AsyncData<FavoritesCollection>(
+      current.setFavorite(product, value: true),
+    );
+    try {
+      await _setFavoriteStatus(product, isFavorite: true);
+    } catch (_) {
+      state = AsyncData<FavoritesCollection>(current);
+    }
+  }
 }

@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gapsi_ecommerce/domain/entities/favorites_collection.dart';
 import 'package:gapsi_ecommerce/domain/entities/product.dart';
 import 'package:gapsi_ecommerce/presentation/detail/product_detail_screen.dart';
 import 'package:gapsi_ecommerce/presentation/favorites/favorites_notifier.dart';
 import 'package:gapsi_ecommerce/presentation/favorites/favorites_providers.dart';
 
 class _FakeFavoritesNotifier extends FavoritesNotifier {
-  _FakeFavoritesNotifier(this.initialIds);
+  _FakeFavoritesNotifier(this.initialProducts);
 
-  final Set<String> initialIds;
-
-  @override
-  Future<Set<String>> build() async => Set<String>.unmodifiable(initialIds);
+  final List<Product> initialProducts;
 
   @override
-  Future<bool> toggleFavorite(String productId) async {
-    final Set<String> updated = Set<String>.of(state.requireValue);
-    if (!updated.add(productId)) updated.remove(productId);
-    state = AsyncData<Set<String>>(Set<String>.unmodifiable(updated));
+  Future<FavoritesCollection> build() async =>
+      FavoritesCollection(products: initialProducts);
+
+  @override
+  Future<bool> toggleFavorite(Product product) async {
+    final FavoritesCollection current = state.requireValue;
+    state = AsyncData<FavoritesCollection>(
+      current.setFavorite(product, value: !current.contains(product.id)),
+    );
     return true;
   }
 }
@@ -27,13 +30,13 @@ Future<void> _pumpDetail(
   WidgetTester tester,
   Product product, {
   TextScaler? textScaler,
-  Set<String> favoriteIds = const <String>{},
+  List<Product> favoriteProducts = const <Product>[],
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         favoritesProvider.overrideWith(
-          () => _FakeFavoritesNotifier(favoriteIds),
+          () => _FakeFavoritesNotifier(favoriteProducts),
         ),
       ],
       child: MaterialApp(
@@ -72,7 +75,9 @@ void main() {
     await _pumpDetail(
       tester,
       const Product(id: 'favorite', title: 'Favorite product'),
-      favoriteIds: const <String>{'favorite'},
+      favoriteProducts: const <Product>[
+        Product(id: 'favorite', title: 'Favorite product'),
+      ],
     );
 
     expect(

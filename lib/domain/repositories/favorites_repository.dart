@@ -1,5 +1,8 @@
-abstract class FavoritesRepository {
-  Future<Set<String>> getFavoriteIds();
+import '../entities/favorites_collection.dart';
+import '../entities/product.dart';
 
-  Future<void> setFavoriteStatus(String productId, {required bool isFavorite});
+abstract class FavoritesRepository {
+  Future<FavoritesCollection> getFavorites();
+
+  Future<void> setFavoriteStatus(Product product, {required bool isFavorite});
 }

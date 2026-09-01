@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gapsi_ecommerce/domain/entities/favorites_collection.dart';
 import 'package:gapsi_ecommerce/main.dart';
 import 'package:gapsi_ecommerce/presentation/favorites/favorites_notifier.dart';
 import 'package:gapsi_ecommerce/presentation/favorites/favorites_providers.dart';
@@ -14,7 +15,7 @@ class _InitialSearchNotifier extends SearchNotifier {
 
 class _EmptyFavoritesNotifier extends FavoritesNotifier {
   @override
-  Future<Set<String>> build() async => const <String>{};
+  Future<FavoritesCollection> build() async => FavoritesCollection();
 }
 
 void main() {

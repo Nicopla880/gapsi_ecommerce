@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/entities/favorites_collection.dart';
 import '../../domain/entities/product.dart';
 import '../favorites/favorites_providers.dart';
 import '../widgets/product_image.dart';
@@ -23,12 +24,16 @@ class ProductDetailScreen extends ConsumerWidget {
         _descriptionToPlainText(product.description) ??
         'Description unavailable';
     final double bottomInset = MediaQuery.paddingOf(context).bottom;
-    final AsyncValue<Set<String>> favorites = ref.watch(favoritesProvider);
+    final AsyncValue<FavoritesCollection> favorites = ref.watch(
+      favoritesProvider,
+    );
     final bool isFavorite = switch (favorites) {
-      AsyncData<Set<String>>(:final value) => value.contains(product.id),
+      AsyncData<FavoritesCollection>(:final value) => value.contains(
+        product.id,
+      ),
       _ => false,
     };
-    final bool favoritesReady = favorites is AsyncData<Set<String>>;
+    final bool favoritesReady = favorites is AsyncData<FavoritesCollection>;
 
     return Scaffold(
       key: const Key('productDetailScreen'),
@@ -51,7 +56,7 @@ class ProductDetailScreen extends ConsumerWidget {
                 ? () async {
                     final bool saved = await ref
                         .read(favoritesProvider.notifier)
-                        .toggleFavorite(product.id);
+                        .toggleFavorite(product);
                     if (!saved && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(

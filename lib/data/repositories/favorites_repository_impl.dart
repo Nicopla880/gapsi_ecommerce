@@ -1,4 +1,6 @@
 import '../../core/errors/exceptions.dart';
+import '../../domain/entities/favorites_collection.dart';
+import '../../domain/entities/product.dart';
 import '../../domain/repositories/favorites_repository.dart';
 import '../datasources/local/favorites_local_datasource.dart';
 
@@ -8,9 +10,9 @@ class FavoritesRepositoryImpl implements FavoritesRepository {
   final FavoritesLocalDataSource _localDataSource;
 
   @override
-  Future<Set<String>> getFavoriteIds() async {
+  Future<FavoritesCollection> getFavorites() async {
     try {
-      return await _localDataSource.getFavoriteIds();
+      return await _localDataSource.getFavorites();
     } on CacheException {
       rethrow;
     } catch (error) {
@@ -20,19 +22,18 @@ class FavoritesRepositoryImpl implements FavoritesRepository {
 
   @override
   Future<void> setFavoriteStatus(
-    String productId, {
+    Product product, {
     required bool isFavorite,
   }) async {
-    final String normalizedId = productId.trim();
-    if (normalizedId.isEmpty) return;
+    if (product.id.trim().isEmpty) return;
 
     try {
-      final Set<String> current = await _localDataSource.getFavoriteIds();
-      final Set<String> updated = Set<String>.of(current);
-      final bool changed = isFavorite
-          ? updated.add(normalizedId)
-          : updated.remove(normalizedId);
-      if (changed) await _localDataSource.saveFavoriteIds(updated);
+      final FavoritesCollection current = await _localDataSource.getFavorites();
+      final FavoritesCollection updated = current.setFavorite(
+        product,
+        value: isFavorite,
+      );
+      await _localDataSource.saveFavorites(updated);
     } on CacheException {
       rethrow;
     } catch (error) {

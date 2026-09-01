@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gapsi_ecommerce/domain/entities/favorites_collection.dart';
 import 'package:gapsi_ecommerce/domain/entities/product.dart';
 import 'package:gapsi_ecommerce/presentation/detail/product_detail_screen.dart';
 import 'package:gapsi_ecommerce/presentation/favorites/favorites_notifier.dart';
@@ -39,20 +40,21 @@ class _FakeSearchNotifier extends SearchNotifier {
 }
 
 class _FakeFavoritesNotifier extends FavoritesNotifier {
-  _FakeFavoritesNotifier(this.initialIds);
+  _FakeFavoritesNotifier(this.initialFavorites);
 
-  final Set<String> initialIds;
+  final FavoritesCollection initialFavorites;
   int toggleCalls = 0;
 
   @override
-  Future<Set<String>> build() async => Set<String>.unmodifiable(initialIds);
+  Future<FavoritesCollection> build() async => initialFavorites;
 
   @override
-  Future<bool> toggleFavorite(String productId) async {
+  Future<bool> toggleFavorite(Product product) async {
     toggleCalls++;
-    final Set<String> updated = Set<String>.of(state.requireValue);
-    if (!updated.add(productId)) updated.remove(productId);
-    state = AsyncData<Set<String>>(Set<String>.unmodifiable(updated));
+    final FavoritesCollection current = state.requireValue;
+    state = AsyncData<FavoritesCollection>(
+      current.setFavorite(product, value: !current.contains(product.id)),
+    );
     return true;
   }
 }
@@ -70,12 +72,13 @@ Future<_FakeSearchNotifier> _pumpSearchScreen(
   List<String> history = const <String>[],
   ValueChanged<Product>? onProductTap,
   TextScaler? textScaler,
-  Set<String> favoriteIds = const <String>{},
+  List<Product> favoriteProducts = const <Product>[],
   _FakeFavoritesNotifier? favoritesNotifier,
 }) async {
   late _FakeSearchNotifier notifier;
   final _FakeFavoritesNotifier resolvedFavoritesNotifier =
-      favoritesNotifier ?? _FakeFavoritesNotifier(favoriteIds);
+      favoritesNotifier ??
+      _FakeFavoritesNotifier(FavoritesCollection(products: favoriteProducts));
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -128,37 +131,29 @@ void main() {
     expect(find.text('Search products'), findsOneWidget);
   });
 
-  testWidgets('sin historial muestra All seleccionado y ningún recent vacío', (
-    WidgetTester tester,
-  ) async {
-    await _pumpSearchScreen(tester);
+  testWidgets(
+    'discovery muestra Favorites y elimina All y Recent persistente',
+    (WidgetTester tester) async {
+      await _pumpSearchScreen(tester, history: const <String>['Nintendo']);
 
-    expect(find.text('Discover products'), findsNothing);
-    expect(find.text('Loading recent searches…'), findsNothing);
-    expect(find.byKey(const Key('recentSearchRow')), findsNothing);
-    expect(find.text('All'), findsOneWidget);
-    expect(
-      find.byKey(const Key('quickSearch-All')).hitTestable(),
-      findsOneWidget,
-    );
+      expect(find.text('Favorites'), findsOneWidget);
+      expect(
+        find.byKey(const Key('quickSearch-Favorites')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.text('All'), findsNothing);
+      expect(find.text('Recent: Nintendo'), findsNothing);
+      expect(find.byKey(const Key('recentSearchRow')), findsNothing);
 
-    final Semantics all = tester.widget<Semantics>(
-      find.byKey(const Key('quickSearchSemantics-All')),
-    );
-    expect(all.properties.selected, isTrue);
-    expect(
-      tester.getSize(find.byKey(const Key('quickSearchIndicator-All'))).width,
-      greaterThan(0),
-    );
-
-    final SliverAppBar appBar = tester.widget<SliverAppBar>(
-      find.byKey(const Key('searchSliverAppBar')),
-    );
-    expect(
-      appBar.expandedHeight! - appBar.collapsedHeight!,
-      SearchHeaderLayout.discoveryQuickOnlyExtent,
-    );
-  });
+      final SliverAppBar appBar = tester.widget<SliverAppBar>(
+        find.byKey(const Key('searchSliverAppBar')),
+      );
+      expect(
+        appBar.expandedHeight! - appBar.collapsedHeight!,
+        SearchHeaderLayout.discoveryQuickOnlyExtent,
+      );
+    },
+  );
 
   testWidgets('cada cambio de texto delega la intención al notifier', (
     WidgetTester tester,
@@ -182,20 +177,32 @@ void main() {
     expect(_searchController(tester).text, 'gaming');
     expect(_searchController(tester).selection.baseOffset, 'gaming'.length);
     expect(notifier.searchIntents.last, 'gaming');
+    final Semantics gaming = tester.widget<Semantics>(
+      find.byKey(const Key('quickSearchSemantics-Gaming')),
+    );
+    expect(gaming.properties.selected, isTrue);
   });
 
-  testWidgets('All limpia el campo y envía intención vacía', (
+  testWidgets('query arbitraria no selecciona ningún quick search', (
     WidgetTester tester,
   ) async {
-    final _FakeSearchNotifier notifier = await _pumpSearchScreen(tester);
-    await tester.enterText(find.byKey(const Key('searchField')), 'laptop');
+    await _pumpSearchScreen(tester);
+
+    await tester.enterText(find.byKey(const Key('searchField')), 'Nintendo');
     await tester.pump();
 
-    await tester.tap(find.byKey(const Key('quickSearch-All')));
-    await tester.pump();
-
-    expect(_searchController(tester).text, isEmpty);
-    expect(notifier.searchIntents.last, isEmpty);
+    for (final String label in <String>[
+      'Gaming',
+      'Electronics',
+      'Laptops',
+      'Home',
+      'Fashion',
+    ]) {
+      final Semantics item = tester.widget<Semantics>(
+        find.byKey(ValueKey<String>('quickSearchSemantics-$label')),
+      );
+      expect(item.properties.selected, isFalse);
+    }
   });
 
   testWidgets('acción clear limpia el campo y notifica intención vacía', (
@@ -212,7 +219,7 @@ void main() {
     expect(notifier.searchIntents.last, isEmpty);
   });
 
-  testWidgets('recent shortcut completa y ejecuta la búsqueda persistida', (
+  testWidgets('foco muestra historial y tap ejecuta búsqueda persistida', (
     WidgetTester tester,
   ) async {
     final _FakeSearchNotifier notifier = await _pumpSearchScreen(
@@ -220,19 +227,13 @@ void main() {
       history: const <String>['Nintendo'],
     );
 
-    expect(find.text('Recent: Nintendo'), findsOneWidget);
-    expect(find.byKey(const Key('recentSearchRow')), findsOneWidget);
-    expect(find.text('Discover products'), findsNothing);
+    expect(find.byKey(const Key('focusedRecentSearches')), findsNothing);
+    await tester.tap(find.byKey(const Key('searchField')));
+    await tester.pump();
 
-    final SliverAppBar appBar = tester.widget<SliverAppBar>(
-      find.byKey(const Key('searchSliverAppBar')),
-    );
-    expect(
-      appBar.expandedHeight! - appBar.collapsedHeight!,
-      SearchHeaderLayout.discoveryWithRecentExtent,
-    );
-
-    await tester.tap(find.byKey(const Key('recentSearchShortcut')));
+    expect(find.byKey(const Key('focusedRecentSearches')), findsOneWidget);
+    expect(find.byKey(const Key('history-Nintendo')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('history-Nintendo')));
     await tester.pump();
 
     expect(_searchController(tester).text, 'Nintendo');
@@ -253,7 +254,7 @@ void main() {
       textScaler: const TextScaler.linear(2),
     );
 
-    expect(find.text('Recent: Nintendo'), findsOneWidget);
+    expect(find.text('Favorites'), findsOneWidget);
     expect(find.text('Gaming'), findsOneWidget);
     expect(find.byKey(const Key('searchField')), findsOneWidget);
     expect(find.text('Nintendo Switch OLED Console'), findsOneWidget);
@@ -263,7 +264,7 @@ void main() {
     );
     expect(
       appBar.expandedHeight! - appBar.collapsedHeight!,
-      greaterThan(SearchHeaderLayout.discoveryWithRecentExtent),
+      greaterThan(SearchHeaderLayout.discoveryQuickOnlyExtent),
     );
     expect(tester.takeException(), isNull);
   });
@@ -282,7 +283,7 @@ void main() {
     );
     expect(
       appBar.expandedHeight! - appBar.collapsedHeight!,
-      SearchHeaderLayout.discoveryWithRecentExtent,
+      SearchHeaderLayout.discoveryQuickOnlyExtent,
     );
     expect(tester.takeException(), isNull);
   });
@@ -304,6 +305,183 @@ void main() {
     await tester.pump();
     expect(_searchController(tester).text, 'Sony');
     expect(notifier.searchIntents.last, 'Sony');
+  });
+
+  testWidgets(
+    'foco preserva SearchLoaded y al salir restaura grid sin request',
+    (WidgetTester tester) async {
+      final SearchLoaded loaded = SearchLoaded(
+        products: const <Product>[_console],
+        currentPage: 1,
+        hasReachedMax: true,
+      );
+      final _FakeSearchNotifier notifier = await _pumpSearchScreen(
+        tester,
+        initialState: loaded,
+        history: const <String>['Nintendo'],
+      );
+
+      await tester.tap(find.byKey(const Key('searchField')));
+      await tester.pump();
+      expect(find.byKey(const Key('focusedRecentSearches')), findsOneWidget);
+      expect(find.byKey(const Key('productGrid')), findsNothing);
+      expect(notifier.state, same(loaded));
+
+      tester
+          .widget<TextField>(find.byKey(const Key('searchField')))
+          .focusNode!
+          .unfocus();
+      await tester.pump();
+
+      expect(find.byKey(const Key('productGrid')), findsOneWidget);
+      expect(find.text('Nintendo Switch OLED Console'), findsOneWidget);
+      expect(notifier.state, same(loaded));
+      expect(notifier.searchIntents, isEmpty);
+    },
+  );
+
+  testWidgets('Favorites vacío no busca remotamente y muestra empty state', (
+    WidgetTester tester,
+  ) async {
+    final _FakeSearchNotifier notifier = await _pumpSearchScreen(tester);
+
+    await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
+    await tester.pump();
+
+    expect(_searchController(tester).text, isEmpty);
+    expect(notifier.searchIntents, isEmpty);
+    expect(find.byKey(const Key('emptyFavorites')), findsOneWidget);
+    final Semantics favorites = tester.widget<Semantics>(
+      find.byKey(const Key('quickSearchSemantics-Favorites')),
+    );
+    expect(favorites.properties.selected, isTrue);
+  });
+
+  testWidgets('Favorites muestra snapshots persistidos sin request remoto', (
+    WidgetTester tester,
+  ) async {
+    final _FakeSearchNotifier notifier = await _pumpSearchScreen(
+      tester,
+      favoriteProducts: const <Product>[_console],
+    );
+
+    await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('favoritesGrid')), findsOneWidget);
+    expect(find.text('Nintendo Switch OLED Console'), findsOneWidget);
+    expect(find.text(r'$349.99'), findsOneWidget);
+    expect(notifier.searchIntents, isEmpty);
+  });
+
+  testWidgets('scroll en Favorites no dispara paginación remota', (
+    WidgetTester tester,
+  ) async {
+    final List<Product> favorites = List<Product>.generate(
+      30,
+      (int index) => Product(id: 'fav-$index', title: 'Favorite $index'),
+    );
+    final _FakeSearchNotifier notifier = await _pumpSearchScreen(
+      tester,
+      initialState: SearchLoaded(
+        products: favorites,
+        currentPage: 1,
+        hasReachedMax: false,
+      ),
+      favoriteProducts: favorites,
+    );
+
+    await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
+    await tester.pump();
+
+    await tester.fling(
+      find.byKey(const Key('searchScrollView')),
+      const Offset(0, -6000),
+      5000,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('favoritesGrid')), findsOneWidget);
+    expect(notifier.loadNextPageCalls, isZero);
+    expect(notifier.searchIntents, isEmpty);
+  });
+
+  testWidgets(
+    'quitar favorito desde colección elimina la card inmediatamente',
+    (WidgetTester tester) async {
+      final _FakeFavoritesNotifier favoritesNotifier = _FakeFavoritesNotifier(
+        FavoritesCollection(products: const <Product>[_console]),
+      );
+      await _pumpSearchScreen(tester, favoritesNotifier: favoritesNotifier);
+      await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
+      await tester.pump();
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('favoriteButton-console-1')),
+      );
+      await tester.pump();
+
+      expect(find.text('Nintendo Switch OLED Console'), findsNothing);
+      expect(find.byKey(const Key('emptyFavorites')), findsOneWidget);
+      expect(favoritesNotifier.toggleCalls, 1);
+    },
+  );
+
+  testWidgets('foco desde Favorites restaura colección al cancelar', (
+    WidgetTester tester,
+  ) async {
+    final _FakeSearchNotifier notifier = await _pumpSearchScreen(
+      tester,
+      history: const <String>['Nintendo'],
+      favoriteProducts: const <Product>[_console],
+    );
+    await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('searchField')));
+    await tester.pump();
+    expect(find.byKey(const Key('focusedRecentSearches')), findsOneWidget);
+    expect(find.byKey(const Key('favoritesGrid')), findsNothing);
+
+    tester
+        .widget<TextField>(find.byKey(const Key('searchField')))
+        .focusNode!
+        .unfocus();
+    await tester.pump();
+
+    expect(find.byKey(const Key('favoritesGrid')), findsOneWidget);
+    expect(notifier.searchIntents, isEmpty);
+  });
+
+  testWidgets('recent y escritura salen de Favorites', (
+    WidgetTester tester,
+  ) async {
+    final _FakeSearchNotifier notifier = await _pumpSearchScreen(
+      tester,
+      history: const <String>['Nintendo'],
+      favoriteProducts: const <Product>[_console],
+    );
+    await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('searchField')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('history-Nintendo')));
+    await tester.pump();
+
+    expect(notifier.searchIntents.last, 'Nintendo');
+    expect(find.byKey(const Key('favoritesGrid')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('searchField')));
+    await tester.enterText(find.byKey(const Key('searchField')), 'Sony');
+    await tester.pump();
+
+    expect(notifier.searchIntents.last, 'Sony');
+    final Semantics favorites = tester.widget<Semantics>(
+      find.byKey(const Key('quickSearchSemantics-Favorites')),
+    );
+    expect(favorites.properties.selected, isFalse);
   });
 
   testWidgets('loading conserva el header primario', (
@@ -351,7 +529,7 @@ void main() {
         currentPage: 1,
         hasReachedMax: true,
       ),
-      favoriteIds: const <String>{'console-1'},
+      favoriteProducts: const <Product>[_console],
     );
 
     expect(
@@ -366,7 +544,7 @@ void main() {
   ) async {
     Product? selected;
     final _FakeFavoritesNotifier favoritesNotifier = _FakeFavoritesNotifier(
-      const <String>{},
+      FavoritesCollection(),
     );
     await _pumpSearchScreen(
       tester,
@@ -421,7 +599,7 @@ void main() {
         hasReachedMax: true,
       );
       final _FakeFavoritesNotifier favoritesNotifier = _FakeFavoritesNotifier(
-        const <String>{'console-1'},
+        FavoritesCollection(products: const <Product>[_console]),
       );
       final _FakeSearchNotifier notifier = await _pumpSearchScreen(
         tester,
@@ -479,6 +657,34 @@ void main() {
       expect(notifier.loadNextPageCalls, 0);
     },
   );
+
+  testWidgets('card favorita abre detalle y al quitarla desaparece al volver', (
+    WidgetTester tester,
+  ) async {
+    final _FakeFavoritesNotifier favoritesNotifier = _FakeFavoritesNotifier(
+      FavoritesCollection(products: const <Product>[_console]),
+    );
+    final _FakeSearchNotifier notifier = await _pumpSearchScreen(
+      tester,
+      favoritesNotifier: favoritesNotifier,
+    );
+    await tester.tap(find.byKey(const Key('quickSearch-Favorites')));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey<String>('product-console-1')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProductDetailScreen), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('productDetailFavoriteButton')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('productDetailBackButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ProductDetailScreen), findsNothing);
+    expect(find.byKey(const Key('emptyFavorites')), findsOneWidget);
+    expect(find.text('Nintendo Switch OLED Console'), findsNothing);
+    expect(notifier.searchIntents, isEmpty);
+  });
 
   testWidgets('resultado vacío presenta mensaje y mantiene búsqueda', (
     WidgetTester tester,
@@ -600,7 +806,7 @@ void main() {
     expect(appBar.floating, isTrue);
     expect(appBar.snap, isTrue);
     expect(
-      find.byKey(const Key('recentSearchRow')).hitTestable(),
+      find.byKey(const Key('quickSearch-Favorites')).hitTestable(),
       findsOneWidget,
     );
 
@@ -620,7 +826,7 @@ void main() {
       findsNothing,
     );
     expect(
-      find.byKey(const Key('recentSearchRow')).hitTestable(),
+      find.byKey(const Key('quickSearch-Favorites')).hitTestable(),
       findsNothing,
     );
 
@@ -638,7 +844,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const Key('recentSearchRow')).hitTestable(),
+      find.byKey(const Key('quickSearch-Favorites')).hitTestable(),
       findsOneWidget,
     );
     expect(notifier.loadNextPageCalls, 0);
