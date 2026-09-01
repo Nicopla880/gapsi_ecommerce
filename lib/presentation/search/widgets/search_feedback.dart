@@ -83,6 +83,7 @@ class SearchMessage extends StatelessWidget {
     this.actionLabel,
     this.actionKey,
     this.onAction,
+    this.alignment = Alignment.center,
     super.key,
   });
 
@@ -93,10 +94,16 @@ class SearchMessage extends StatelessWidget {
   final Key? actionKey;
   final VoidCallback? onAction;
 
+  /// Dónde se ancla el bloque dentro del espacio disponible. Los estados que
+  /// ocupan la pantalla entera se centran; los que reemplazan a una lista que
+  /// empieza arriba usan [Alignment.topCenter] para no saltar de posición.
+  final Alignment alignment;
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return Center(
+    return Align(
+      alignment: alignment,
       child: Padding(
         padding: const EdgeInsets.all(GapsiSpacing.xxl),
         child: Column(

@@ -12,6 +12,7 @@ import 'package:gapsi_ecommerce/presentation/search/search_notifier.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_providers.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_screen.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_state.dart';
+import 'package:gapsi_ecommerce/presentation/search/widgets/search_feedback.dart';
 import 'package:gapsi_ecommerce/presentation/search/widgets/search_headers.dart';
 
 class _FakeSearchNotifier extends SearchNotifier {
@@ -361,6 +362,13 @@ void main() {
     expect(_searchController(tester).text, isEmpty);
     expect(notifier.searchIntents, isEmpty);
     expect(find.byKey(const Key('emptyFavorites')), findsOneWidget);
+    // Anclado arriba, como el estado inicial, y no centrado en la pantalla.
+    expect(
+      tester
+          .widget<SearchMessage>(find.byKey(const Key('emptyFavorites')))
+          .alignment,
+      Alignment.topCenter,
+    );
     final Semantics favorites = tester.widget<Semantics>(
       find.byKey(const Key('quickSearchSemantics-Favorites')),
     );

@@ -355,6 +355,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               icon: Icons.favorite_border,
               title: 'No favorites yet',
               message: 'Save products you like to find them here later.',
+              // Arriba, como el estado inicial: Favorites reemplaza a una
+              // grilla que arranca en el borde superior.
+              alignment: Alignment.topCenter,
             ),
           ),
         ],
