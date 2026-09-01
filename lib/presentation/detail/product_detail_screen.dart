@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design_system/gapsi_design_system.dart';
 import '../../domain/entities/favorites_collection.dart';
 import '../../domain/entities/product.dart';
 import '../favorites/favorites_providers.dart';
@@ -37,7 +38,6 @@ class ProductDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       key: const Key('productDetailScreen'),
-      backgroundColor: theme.colorScheme.surfaceContainerLowest,
       appBar: AppBar(
         leading: const BackButton(key: Key('productDetailBackButton')),
         title: const Text(
@@ -45,35 +45,28 @@ class ProductDetailScreen extends ConsumerWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        backgroundColor: theme.colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 1,
         actions: <Widget>[
-          IconButton(
-            key: const Key('productDetailFavoriteButton'),
-            tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
-            onPressed: favoritesReady
-                ? () async {
-                    final bool saved = await ref
-                        .read(favoritesProvider.notifier)
-                        .toggleFavorite(product);
-                    if (!saved && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Could not update favorites.'),
-                        ),
-                      );
+          Padding(
+            padding: const EdgeInsets.only(right: GapsiSpacing.xs),
+            child: GapsiFavoriteButton(
+              key: const Key('productDetailFavoriteButton'),
+              isFavorite: isFavorite,
+              filledIconKey: const Key('productDetailFavoriteFilled'),
+              outlineIconKey: const Key('productDetailFavoriteOutline'),
+              onPressed: favoritesReady
+                  ? () async {
+                      final bool saved = await ref
+                          .read(favoritesProvider.notifier)
+                          .toggleFavorite(product);
+                      if (!saved && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Could not update favorites.'),
+                          ),
+                        );
+                      }
                     }
-                  }
-                : null,
-            icon: Icon(
-              isFavorite ? Icons.favorite : Icons.favorite_border,
-              key: Key(
-                isFavorite
-                    ? 'productDetailFavoriteFilled'
-                    : 'productDetailFavoriteOutline',
-              ),
-              color: isFavorite ? theme.colorScheme.primary : null,
+                  : null,
             ),
           ),
         ],
@@ -82,19 +75,27 @@ class ProductDetailScreen extends ConsumerWidget {
         key: const Key('productDetailScrollView'),
         slivers: <Widget>[
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.fromLTRB(
+              GapsiSpacing.lg,
+              GapsiSpacing.lg,
+              GapsiSpacing.lg,
+              0,
+            ),
             sliver: SliverToBoxAdapter(
               child: AspectRatio(
                 aspectRatio: 1,
-                child: Material(
-                  color: theme.colorScheme.surface,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(color: theme.colorScheme.outlineVariant),
+                child: Container(
+                  padding: const EdgeInsets.all(GapsiSpacing.xl),
+                  decoration: const BoxDecoration(
+                    color: GapsiColors.surface,
+                    borderRadius: GapsiRadius.xlAll,
+                    border: Border.fromBorderSide(
+                      BorderSide(color: GapsiColors.border),
+                    ),
                   ),
-                  clipBehavior: Clip.antiAlias,
                   child: ProductImage(
                     product: product,
+                    heroTag: 'productImage-${product.id}',
                     networkImageKey: const Key('productDetailNetworkImage'),
                     placeholderKey: const Key('productDetailImagePlaceholder'),
                     placeholderIconSize: 56,
@@ -104,7 +105,12 @@ class ProductDetailScreen extends ConsumerWidget {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+            padding: const EdgeInsets.fromLTRB(
+              GapsiSpacing.xl,
+              GapsiSpacing.xl,
+              GapsiSpacing.xl,
+              0,
+            ),
             sliver: SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,12 +118,9 @@ class ProductDetailScreen extends ConsumerWidget {
                   Text(
                     title,
                     key: const Key('productDetailTitle'),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      height: 1.2,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: theme.textTheme.headlineSmall,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: GapsiSpacing.md),
                   Text(
                     price,
                     key: const Key('productDetailPrice'),
@@ -125,31 +128,27 @@ class ProductDetailScreen extends ConsumerWidget {
                         ? theme.textTheme.titleMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           )
-                        : theme.textTheme.headlineSmall?.copyWith(
+                        : theme.textTheme.headlineMedium?.copyWith(
                             color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w800,
                           ),
                   ),
-                  const SizedBox(height: 24),
-                  Divider(color: theme.colorScheme.outlineVariant),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Description',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: GapsiSpacing.xl),
+                  const Divider(),
+                  const SizedBox(height: GapsiSpacing.lg),
+                  Text('Description', style: theme.textTheme.titleLarge),
+                  const SizedBox(height: GapsiSpacing.sm),
                   Text(
                     description,
                     key: const Key('productDetailDescription'),
-                    style: theme.textTheme.bodyLarge?.copyWith(height: 1.5),
+                    style: theme.textTheme.bodyLarge,
                   ),
                 ],
               ),
             ),
           ),
-          SliverToBoxAdapter(child: SizedBox(height: bottomInset + 32)),
+          SliverToBoxAdapter(
+            child: SizedBox(height: bottomInset + GapsiSpacing.xxl),
+          ),
         ],
       ),
     );

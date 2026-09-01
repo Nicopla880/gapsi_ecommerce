@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../design_system/gapsi_design_system.dart';
+
 class RecentSearches extends StatelessWidget {
   const RecentSearches({
     required this.searches,
@@ -17,21 +19,53 @@ class RecentSearches extends StatelessWidget {
       key: const Key('recentSearchesSection'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(
-          'Recent searches',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 12),
+        Text('Recent searches', style: theme.textTheme.titleLarge),
+        const SizedBox(height: GapsiSpacing.md),
         ...searches.map(
-          (String search) => ListTile(
-            key: ValueKey<String>('history-$search'),
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.history_rounded),
-            title: Text(search, maxLines: 1, overflow: TextOverflow.ellipsis),
-            trailing: const Icon(Icons.north_west_rounded, size: 18),
-            onTap: () => onSelected(search),
+          (String search) => Padding(
+            padding: const EdgeInsets.only(bottom: GapsiSpacing.sm),
+            child: Material(
+              key: ValueKey<String>('history-$search'),
+              color: theme.colorScheme.surface,
+              shape: const RoundedRectangleBorder(
+                borderRadius: GapsiRadius.smAll,
+                side: BorderSide(color: GapsiColors.border),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => onSelected(search),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: GapsiSpacing.md,
+                    vertical: GapsiSpacing.md,
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.history_rounded,
+                        size: 20,
+                        color: GapsiColors.textSecondary,
+                      ),
+                      const SizedBox(width: GapsiSpacing.md),
+                      Expanded(
+                        child: Text(
+                          search,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyLarge,
+                        ),
+                      ),
+                      const SizedBox(width: GapsiSpacing.sm),
+                      const Icon(
+                        Icons.north_west_rounded,
+                        size: 18,
+                        color: GapsiColors.textSecondary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ],
@@ -39,6 +73,8 @@ class RecentSearches extends StatelessWidget {
   }
 }
 
+/// Presentación común de los estados sin contenido: historial vacío, sin
+/// resultados, sin favoritos y errores de búsqueda.
 class SearchMessage extends StatelessWidget {
   const SearchMessage({
     required this.icon,
@@ -62,30 +98,37 @@ class SearchMessage extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(GapsiSpacing.xxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(icon, size: 52, color: theme.colorScheme.primary),
-            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(GapsiSpacing.lg),
+              decoration: const BoxDecoration(
+                color: GapsiColors.blueSoft,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 32, color: GapsiColors.navy),
+            ),
+            const SizedBox(height: GapsiSpacing.lg),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: theme.textTheme.titleLarge,
             ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            if (message.isNotEmpty) ...<Widget>[
+              const SizedBox(height: GapsiSpacing.sm),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
+            ],
             if (actionLabel != null && onAction != null) ...<Widget>[
-              const SizedBox(height: 20),
-              FilledButton.tonal(
+              const SizedBox(height: GapsiSpacing.xl),
+              FilledButton(
                 key: actionKey,
                 onPressed: onAction,
                 child: Text(actionLabel!),
@@ -113,25 +156,43 @@ class PaginationError extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     return Padding(
       key: const Key('paginationError'),
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 22),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Flexible(
-            child: Text(
-              message,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium,
+      padding: const EdgeInsets.fromLTRB(
+        GapsiSpacing.lg,
+        GapsiSpacing.md,
+        GapsiSpacing.lg,
+        GapsiSpacing.xl,
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(
+          GapsiSpacing.lg,
+          GapsiSpacing.sm,
+          GapsiSpacing.sm,
+          GapsiSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.errorContainer,
+          borderRadius: GapsiRadius.smAll,
+        ),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                message,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onErrorContainer,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          TextButton(
-            key: const Key('paginationRetryButton'),
-            onPressed: onRetry,
-            child: const Text('Retry'),
-          ),
-        ],
+            const SizedBox(width: GapsiSpacing.sm),
+            TextButton(
+              key: const Key('paginationRetryButton'),
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }

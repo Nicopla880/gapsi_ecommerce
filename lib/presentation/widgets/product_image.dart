@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../design_system/gapsi_design_system.dart';
 import '../../domain/entities/product.dart';
 
 class ProductImage extends StatelessWidget {
@@ -10,6 +11,7 @@ class ProductImage extends StatelessWidget {
     this.placeholderKey = const Key('productImagePlaceholder'),
     this.networkImageKey,
     this.placeholderIconSize = 42,
+    this.heroTag,
     super.key,
   });
 
@@ -19,8 +21,18 @@ class ProductImage extends StatelessWidget {
   final Key? networkImageKey;
   final double placeholderIconSize;
 
+  /// Etiqueta de la transición compartida hacia el detalle. `null` desactiva el
+  /// Hero, para usos donde la imagen no navega a ningún lado.
+  final Object? heroTag;
+
   @override
   Widget build(BuildContext context) {
+    final Object? tag = heroTag;
+    if (tag == null) return _image(context);
+    return Hero(tag: tag, child: _image(context));
+  }
+
+  Widget _image(BuildContext context) {
     final String? url = product.thumbnailUrl?.trim();
     if (url == null || url.isEmpty) {
       return _ImagePlaceholder(
@@ -65,7 +77,7 @@ class _ImagePlaceholder extends StatelessWidget {
       child: Icon(
         Icons.image_outlined,
         size: iconSize,
-        color: Theme.of(context).colorScheme.outline,
+        color: GapsiColors.textSecondary.withValues(alpha: 0.55),
       ),
     );
   }

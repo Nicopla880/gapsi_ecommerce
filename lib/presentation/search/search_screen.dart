@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design_system/gapsi_design_system.dart';
 import '../../domain/entities/favorites_collection.dart';
 import '../../domain/entities/product.dart';
 import '../detail/product_detail_screen.dart';
@@ -233,6 +234,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return _contentSlivers(searchState, history, favorites);
   }
 
+  /// Estados sin grilla —loading, error, vacío, favoritos vacíos—. Comparten
+  /// ranura dentro del `CustomScrollView`, así que el `AnimatedSwitcher` funde
+  /// entre ellos sin tocar el scroll ni la posición del header.
+  ///
+  /// El historial queda fuera a propósito: el estado inicial y el de foco
+  /// muestran la misma lista, y cruzarlos dejaría dos copias en pantalla
+  /// durante la transición.
+  Widget _messageSliver({required Key stateKey, required Widget child}) {
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: AnimatedSwitcher(
+        duration: GapsiMotion.stateChange,
+        child: KeyedSubtree(key: stateKey, child: child),
+      ),
+    );
+  }
+
   List<Widget> _contentSlivers(
     SearchState searchState,
     AsyncValue<List<String>> history,
@@ -240,17 +258,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   ) {
     return switch (searchState) {
       SearchInitial() => <Widget>[_initialContent(history)],
-      SearchLoading() => const <Widget>[
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-            child: CircularProgressIndicator(key: Key('initialSearchLoader')),
-          ),
-        ),
-      ],
+      SearchLoading() => <Widget>[_skeletonGrid()],
       SearchError(:final String message) => <Widget>[
-        SliverFillRemaining(
-          hasScrollBody: false,
+        _messageSliver(
+          stateKey: const Key('searchErrorState'),
           child: SearchMessage(
             icon: Icons.cloud_off_outlined,
             title: 'Search unavailable',
@@ -264,10 +275,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
       ],
       SearchLoaded(:final List<Product> products) when products.isEmpty =>
-        const <Widget>[
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: SearchMessage(
+        <Widget>[
+          _messageSliver(
+            stateKey: const Key('searchEmptyState'),
+            child: const SearchMessage(
               icon: Icons.search_off_outlined,
               title: 'No products found',
               message: 'Try another search or choose a quick search above.',
@@ -280,7 +291,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _focusContent(AsyncValue<List<String>> history) {
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        GapsiSpacing.xl,
+        GapsiSpacing.xl,
+        GapsiSpacing.xl,
+        GapsiSpacing.xxl,
+      ),
       sliver: SliverToBoxAdapter(
         child: history.when(
           data: (List<String> searches) => searches.isEmpty
@@ -295,8 +311,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   searches: searches,
                   onSelected: _runSearch,
                 ),
-          loading: () =>
-              const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          loading: () => const Center(
+            child: SizedBox.square(
+              dimension: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
           error: (Object error, StackTrace stackTrace) => const SearchMessage(
             icon: Icons.history_toggle_off_rounded,
             title: 'Start typing to search products.',
@@ -309,16 +329,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   List<Widget> _favoritesContent(AsyncValue<FavoritesCollection> favorites) {
     return switch (favorites) {
-      AsyncLoading<FavoritesCollection>() => const <Widget>[
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(child: CircularProgressIndicator()),
+      AsyncLoading<FavoritesCollection>() => <Widget>[
+        _messageSliver(
+          stateKey: const Key('favoritesLoadingState'),
+          child: const Center(child: CircularProgressIndicator()),
         ),
       ],
-      AsyncError<FavoritesCollection>() => const <Widget>[
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: SearchMessage(
+      AsyncError<FavoritesCollection>() => <Widget>[
+        _messageSliver(
+          stateKey: const Key('favoritesErrorState'),
+          child: const SearchMessage(
             icon: Icons.favorite_border,
             title: 'Favorites unavailable',
             message: 'Could not load your saved products.',
@@ -327,10 +347,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ],
       AsyncData<FavoritesCollection>(:final value)
           when value.products.isEmpty =>
-        const <Widget>[
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: SearchMessage(
+        <Widget>[
+          _messageSliver(
+            stateKey: const Key('favoritesEmptyState'),
+            child: const SearchMessage(
               key: Key('emptyFavorites'),
               icon: Icons.favorite_border,
               title: 'No favorites yet',
@@ -345,7 +365,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           gridKey: const Key('favoritesGrid'),
         ),
         SliverToBoxAdapter(
-          child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 24),
+          child: SizedBox(
+            height: MediaQuery.paddingOf(context).bottom + GapsiSpacing.xl,
+          ),
         ),
       ],
     };
@@ -353,18 +375,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _initialContent(AsyncValue<List<String>> history) {
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        GapsiSpacing.xl,
+        GapsiSpacing.xl,
+        GapsiSpacing.xl,
+        GapsiSpacing.xxl,
+      ),
       sliver: SliverToBoxAdapter(
         child: history.when(
           data: (List<String> searches) {
             if (searches.isEmpty) {
               return const SearchMessage(
+                key: Key('emptyInitialHistory'),
                 icon: Icons.manage_search_outlined,
                 title: 'Find your next product',
                 message: 'Search for a product to get started.',
               );
             }
-            return RecentSearches(searches: searches, onSelected: _runSearch);
+            return RecentSearches(
+              key: const Key('initialRecentSearches'),
+              searches: searches,
+              onSelected: _runSearch,
+            );
           },
           loading: () => const Center(
             child: SizedBox.square(
@@ -396,7 +428,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       if (state.isLoadingNextPage)
         const SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 22),
+            padding: EdgeInsets.symmetric(vertical: GapsiSpacing.xl),
             child: Center(
               child: SizedBox.square(
                 key: Key('paginationLoader'),
@@ -417,8 +449,41 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             },
           ),
         ),
-      SliverToBoxAdapter(child: SizedBox(height: bottomSafeArea + 24)),
+      SliverToBoxAdapter(
+        child: SizedBox(height: bottomSafeArea + GapsiSpacing.xl),
+      ),
     ];
+  }
+
+  static const SliverGridDelegate _gridDelegate =
+      SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 240,
+        mainAxisExtent: 286,
+        crossAxisSpacing: GapsiSpacing.md,
+        mainAxisSpacing: GapsiSpacing.md,
+      );
+
+  static const EdgeInsets _gridPadding = EdgeInsets.fromLTRB(
+    GapsiSpacing.md,
+    GapsiSpacing.lg,
+    GapsiSpacing.md,
+    GapsiSpacing.sm,
+  );
+
+  /// Grilla de esqueletos de la búsqueda inicial. Reutiliza la caja de la
+  /// tarjeta real para que la llegada de resultados no mueva el layout.
+  Widget _skeletonGrid() {
+    return SliverPadding(
+      padding: _gridPadding,
+      sliver: SliverGrid(
+        key: const Key('initialSearchLoader'),
+        gridDelegate: _gridDelegate,
+        delegate: SliverChildBuilderDelegate(
+          (BuildContext context, int index) => const GapsiProductCardSkeleton(),
+          childCount: 6,
+        ),
+      ),
+    );
   }
 
   Widget _productGrid({
@@ -432,25 +497,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     };
     final bool favoritesReady = favorites is AsyncData<FavoritesCollection>;
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+      padding: _gridPadding,
       sliver: SliverGrid(
         key: gridKey,
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 240,
-          mainAxisExtent: 286,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-        ),
+        gridDelegate: _gridDelegate,
         delegate: SliverChildBuilderDelegate((BuildContext context, int index) {
           final Product product = products[index];
-          return ProductCard(
+          // La clave va en el envoltorio de entrada: así la tarjeta conserva su
+          // elemento cuando se agrega una página y no repite la animación.
+          return GapsiEntrance(
             key: ValueKey<String>('product-${product.id}'),
-            product: product,
-            onTap: () => _onProductSelected(product),
-            isFavorite: favoriteIds.contains(product.id),
-            onFavoriteToggle: favoritesReady
-                ? () => unawaited(_toggleFavorite(product))
-                : null,
+            delay: GapsiEntrance.staggerFor(index),
+            child: ProductCard(
+              product: product,
+              onTap: () => _onProductSelected(product),
+              isFavorite: favoriteIds.contains(product.id),
+              onFavoriteToggle: favoritesReady
+                  ? () => unawaited(_toggleFavorite(product))
+                  : null,
+            ),
           );
         }, childCount: products.length),
       ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'core/di/service_locator.dart';
+import 'design_system/gapsi_design_system.dart';
 import 'presentation/search/search_screen.dart';
 
 Future<void> main() async {
@@ -24,11 +25,7 @@ class GapsiApp extends StatelessWidget {
     return MaterialApp(
       title: 'Gapsi eCommerce',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B1E4D)),
-        scaffoldBackgroundColor: const Color(0xFFF6F7FB),
-        useMaterial3: true,
-      ),
+      theme: GapsiTheme.light(),
       home: const SearchScreen(),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../design_system/gapsi_design_system.dart';
 import '../../../domain/entities/product.dart';
 import '../../widgets/product_image.dart';
 
@@ -20,52 +21,70 @@ class ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final BorderRadius borderRadius = BorderRadius.circular(16);
+    final bool hasPrice = product.price != null;
 
     return Material(
       color: theme.colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: borderRadius,
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      shape: const RoundedRectangleBorder(
+        borderRadius: GapsiRadius.lgAll,
+        side: BorderSide(color: GapsiColors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
+        borderRadius: GapsiRadius.lgAll,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: <Widget>[
-                  ColoredBox(
-                    color: theme.colorScheme.surfaceContainerLowest,
-                    child: ProductImage(product: product),
-                  ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: IconButton.filledTonal(
-                      key: ValueKey<String>('favoriteButton-${product.id}'),
-                      tooltip: isFavorite
-                          ? 'Remove from favorites'
-                          : 'Add to favorites',
-                      onPressed: onFavoriteToggle,
-                      icon: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        key: ValueKey<String>(
-                          '${isFavorite ? 'favoriteFilled' : 'favoriteOutline'}-'
-                          '${product.id}',
+              child: Padding(
+                padding: const EdgeInsets.all(GapsiSpacing.sm),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: <Widget>[
+                    // La imagen vive en su propio panel redondeado: separa el
+                    // producto del borde de la tarjeta y da un fondo neutro a
+                    // los PNG recortados que devuelve el API.
+                    ClipRRect(
+                      borderRadius: GapsiRadius.smAll,
+                      child: ColoredBox(
+                        color: GapsiColors.surfaceVariant,
+                        child: Padding(
+                          padding: const EdgeInsets.all(GapsiSpacing.sm),
+                          child: ProductImage(
+                            product: product,
+                            heroTag: 'productImage-${product.id}',
+                          ),
                         ),
-                        color: isFavorite ? theme.colorScheme.primary : null,
                       ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      top: -GapsiSpacing.xs,
+                      right: -GapsiSpacing.xs,
+                      child: GapsiFavoriteButton(
+                        key: ValueKey<String>('favoriteButton-${product.id}'),
+                        isFavorite: isFavorite,
+                        onPressed: onFavoriteToggle,
+                        filled: true,
+                        filledIconKey: ValueKey<String>(
+                          'favoriteFilled-${product.id}',
+                        ),
+                        outlineIconKey: ValueKey<String>(
+                          'favoriteOutline-${product.id}',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+              padding: const EdgeInsets.fromLTRB(
+                GapsiSpacing.md,
+                GapsiSpacing.xs,
+                GapsiSpacing.md,
+                GapsiSpacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -75,26 +94,20 @@ class ProductCard extends StatelessWidget {
                         : product.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      height: 1.25,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: theme.textTheme.titleSmall,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: GapsiSpacing.sm),
                   Text(
-                    product.price == null
-                        ? 'Price unavailable'
-                        : '\$${product.price!.toStringAsFixed(2)}',
+                    hasPrice
+                        ? '\$${product.price!.toStringAsFixed(2)}'
+                        : 'Price unavailable',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: product.price == null
-                        ? theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          )
-                        : theme.textTheme.titleMedium?.copyWith(
+                    style: hasPrice
+                        ? theme.textTheme.titleMedium?.copyWith(
                             color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w800,
-                          ),
+                          )
+                        : theme.textTheme.bodySmall,
                   ),
                 ],
               ),

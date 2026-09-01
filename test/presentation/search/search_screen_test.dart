@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gapsi_ecommerce/design_system/gapsi_design_system.dart';
 import 'package:gapsi_ecommerce/domain/entities/favorites_collection.dart';
 import 'package:gapsi_ecommerce/domain/entities/product.dart';
 import 'package:gapsi_ecommerce/presentation/detail/product_detail_screen.dart';
@@ -92,10 +94,7 @@ Future<_FakeSearchNotifier> _pumpSearchScreen(
         favoritesProvider.overrideWith(() => resolvedFavoritesNotifier),
       ],
       child: MaterialApp(
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B1E4D)),
-          useMaterial3: true,
-        ),
+        theme: GapsiTheme.light(),
         builder: (BuildContext context, Widget? child) {
           if (textScaler == null) return child!;
           return MediaQuery(
@@ -118,6 +117,17 @@ TextEditingController _searchController(WidgetTester tester) {
   return tester
       .widget<TextField>(find.byKey(const Key('searchField')))
       .controller!;
+}
+
+double _entranceOpacity(WidgetTester tester, String productId) {
+  return tester
+      .widget<AnimatedOpacity>(
+        find.descendant(
+          of: find.byKey(ValueKey<String>('product-$productId')),
+          matching: find.byType(AnimatedOpacity),
+        ),
+      )
+      .opacity;
 }
 
 void main() {
@@ -860,5 +870,99 @@ void main() {
       find.byKey(const Key('quickSearch-Gaming')).hitTestable(),
       findsNothing,
     );
+  });
+
+  testWidgets('el precio se pinta con la tipografía y el azul de marca', (
+    WidgetTester tester,
+  ) async {
+    await _pumpSearchScreen(
+      tester,
+      initialState: SearchLoaded(
+        products: const <Product>[_console],
+        currentPage: 1,
+        hasReachedMax: true,
+      ),
+    );
+
+    final RenderParagraph price =
+        tester.renderObject(find.text(r'$349.99')) as RenderParagraph;
+
+    expect(price.text.style?.fontFamily, GapsiTypography.fontFamily);
+    expect(price.text.style?.fontWeight, GapsiTypography.extraBold);
+    expect(price.text.style?.color, GapsiColors.blue);
+  });
+
+  testWidgets('cada imagen de producto expone un Hero con tag único', (
+    WidgetTester tester,
+  ) async {
+    final List<Product> products = List<Product>.generate(
+      6,
+      (int index) => Product(id: 'p$index', title: 'Product $index'),
+    );
+    await _pumpSearchScreen(
+      tester,
+      initialState: SearchLoaded(
+        products: products,
+        currentPage: 1,
+        hasReachedMax: true,
+      ),
+    );
+
+    final List<Object> tags = tester
+        .widgetList<Hero>(find.byType(Hero))
+        .map((Hero hero) => hero.tag)
+        .toList(growable: false);
+
+    expect(tags, isNotEmpty);
+    expect(tags.toSet().length, tags.length);
+    expect(tags, contains('productImage-p0'));
+  });
+
+  testWidgets('paginar no repite la entrada de las tarjetas ya visibles', (
+    WidgetTester tester,
+  ) async {
+    final List<Product> firstPage = List<Product>.generate(
+      4,
+      (int index) => Product(id: 'p$index', title: 'Product $index'),
+    );
+    final _FakeSearchNotifier notifier = await _pumpSearchScreen(
+      tester,
+      initialState: SearchLoaded(
+        products: firstPage,
+        currentPage: 1,
+        hasReachedMax: false,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(_entranceOpacity(tester, 'p0'), 1);
+
+    notifier.emit(
+      SearchLoaded(
+        products: <Product>[
+          ...firstPage,
+          const Product(id: 'p4', title: 'Product 4'),
+        ],
+        currentPage: 2,
+        hasReachedMax: true,
+      ),
+    );
+    await tester.pump();
+
+    // La tarjeta ya montada conserva su estado; solo la nueva entra animando.
+    expect(_entranceOpacity(tester, 'p0'), 1);
+    expect(_entranceOpacity(tester, 'p4'), 0);
+
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(_entranceOpacity(tester, 'p4'), 1);
+  });
+
+  testWidgets('la carga inicial muestra la grilla de esqueletos', (
+    WidgetTester tester,
+  ) async {
+    await _pumpSearchScreen(tester, initialState: const SearchLoading());
+
+    expect(find.byKey(const Key('initialSearchLoader')), findsOneWidget);
+    expect(find.byType(GapsiProductCardSkeleton), findsWidgets);
+    expect(find.byKey(const Key('productGrid')), findsNothing);
   });
 }

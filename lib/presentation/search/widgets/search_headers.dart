@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../design_system/gapsi_design_system.dart';
+
 abstract final class SearchHeaderLayout {
   static const double horizontalPadding = 16;
   static const double primaryContentExtent = 72;
@@ -85,8 +87,10 @@ class PrimarySearchHeader extends StatelessWidget {
         ),
         child: Row(
           children: <Widget>[
+            // El icono de marca comparte el radio del campo de busqueda para
+            // que ambos se lean como una sola barra.
             ClipRRect(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: GapsiRadius.mdAll,
               child: Image.asset(
                 'assets/branding/app_icon.png',
                 key: const Key('gapsiLogo'),
@@ -95,7 +99,7 @@ class PrimarySearchHeader extends StatelessWidget {
                 fit: BoxFit.cover,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: GapsiSpacing.md),
             Expanded(
               child: ValueListenableBuilder<TextEditingValue>(
                 valueListenable: controller,
@@ -113,6 +117,11 @@ class PrimarySearchHeader extends StatelessWidget {
                         onChanged: onChanged,
                         onSubmitted: (_) => focusNode.unfocus(),
                         onTapOutside: (_) => focusNode.unfocus(),
+                        style: theme.textTheme.bodyMedium,
+                        // Relleno, bordes y foco vienen del
+                        // inputDecorationTheme. Aca solo se fija el padding
+                        // vertical, porque el alto del campo esta atado al
+                        // extent del header primario.
                         decoration: InputDecoration(
                           hintText: 'Search products',
                           prefixIcon: const Icon(Icons.search_rounded),
@@ -124,27 +133,8 @@ class PrimarySearchHeader extends StatelessWidget {
                                   onPressed: onClear,
                                   icon: const Icon(Icons.close_rounded),
                                 ),
-                          filled: true,
-                          fillColor: theme.colorScheme.surfaceContainerHighest,
                           contentPadding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: theme.colorScheme.outlineVariant,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: theme.colorScheme.primary,
-                              width: 1.5,
-                            ),
+                            vertical: GapsiSpacing.md,
                           ),
                         ),
                       );
@@ -182,7 +172,7 @@ class DiscoveryHeader extends StatelessWidget {
     return Material(
       color: theme.colorScheme.surface,
       elevation: 1,
-      shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.12),
+      shadowColor: GapsiColors.navy.withValues(alpha: 0.10),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           SearchHeaderLayout.horizontalPadding,
@@ -247,7 +237,7 @@ class _DiscoveryItem extends StatelessWidget {
         ? theme.colorScheme.primary
         : theme.colorScheme.onSurfaceVariant;
     return Padding(
-      padding: const EdgeInsets.only(right: 22),
+      padding: const EdgeInsets.only(right: GapsiSpacing.xl),
       child: Semantics(
         key: ValueKey<String>('quickSearchSemantics-$label'),
         selected: selected,
@@ -255,8 +245,9 @@ class _DiscoveryItem extends StatelessWidget {
         child: InkWell(
           key: ValueKey<String>('quickSearch-$label'),
           onTap: onTap,
+          borderRadius: GapsiRadius.smAll,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: GapsiSpacing.sm),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
@@ -265,15 +256,15 @@ class _DiscoveryItem extends StatelessWidget {
                   children: <Widget>[
                     if (icon case final IconData value) ...<Widget>[
                       Icon(value, size: 18, color: foreground),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: GapsiSpacing.xs + 1),
                     ],
                     Text(
                       label,
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: foreground,
                         fontWeight: selected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
+                            ? GapsiTypography.bold
+                            : GapsiTypography.semiBold,
                       ),
                     ),
                   ],
@@ -281,12 +272,13 @@ class _DiscoveryItem extends StatelessWidget {
                 const SizedBox(height: 5),
                 AnimatedContainer(
                   key: ValueKey<String>('quickSearchIndicator-$label'),
-                  duration: const Duration(milliseconds: 160),
+                  duration: GapsiMotion.favorite,
+                  curve: GapsiMotion.standard,
                   height: 2,
                   width: selected ? 36 : 0,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
-                    borderRadius: BorderRadius.circular(2),
+                  decoration: const BoxDecoration(
+                    color: GapsiColors.blue,
+                    borderRadius: BorderRadius.all(Radius.circular(2)),
                   ),
                 ),
               ],

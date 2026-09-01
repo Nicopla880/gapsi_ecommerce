@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gapsi_ecommerce/design_system/gapsi_design_system.dart';
 import 'package:gapsi_ecommerce/domain/entities/favorites_collection.dart';
 import 'package:gapsi_ecommerce/domain/entities/product.dart';
 import 'package:gapsi_ecommerce/presentation/detail/product_detail_screen.dart';
@@ -40,10 +42,7 @@ Future<void> _pumpDetail(
         ),
       ],
       child: MaterialApp(
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B1E4D)),
-          useMaterial3: true,
-        ),
+        theme: GapsiTheme.light(),
         builder: (BuildContext context, Widget? child) {
           if (textScaler == null) return child!;
           return MediaQuery(
@@ -202,4 +201,46 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('la imagen comparte el Hero con la tarjeta de origen', (
+    WidgetTester tester,
+  ) async {
+    await _pumpDetail(
+      tester,
+      const Product(id: 'console-1', title: 'Nintendo Switch OLED Console'),
+    );
+
+    final List<Object> tags = tester
+        .widgetList<Hero>(find.byType(Hero))
+        .map((Hero hero) => hero.tag)
+        .toList(growable: false);
+
+    expect(tags, <Object>['productImage-console-1']);
+  });
+
+  testWidgets('el precio usa el rol tipográfico más prominente del tema', (
+    WidgetTester tester,
+  ) async {
+    await _pumpDetail(
+      tester,
+      const Product(id: 'p1', title: 'Product', price: 12.5),
+    );
+
+    // La imagen cuadrada ocupa el primer viewport, asi que el bloque de texto
+    // llega recien despues de desplazarse.
+    await _scrollTo(tester, find.byKey(const Key('productDetailPrice')));
+
+    final RenderParagraph price =
+        tester.renderObject(find.byKey(const Key('productDetailPrice')))
+            as RenderParagraph;
+    final TextTheme textTheme = GapsiTheme.light().textTheme;
+
+    expect(price.text.style?.fontFamily, GapsiTypography.fontFamily);
+    expect(price.text.style?.color, GapsiColors.blue);
+    expect(price.text.style?.fontSize, textTheme.headlineMedium!.fontSize);
+    expect(
+      price.text.style!.fontSize,
+      greaterThan(textTheme.headlineSmall!.fontSize!),
+    );
+  });
 }

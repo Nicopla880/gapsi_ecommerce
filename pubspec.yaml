@@ -73,6 +73,21 @@ flutter:
   assets:
     - assets/branding/
 
+  # Manrope es la unica familia tipografica de la app. Se empaquetan solo los
+  # cuatro pesos que usa el tema (ver GapsiTypography); la licencia OFL vive
+  # junto a los archivos en assets/fonts/OFL.txt.
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Manrope-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Manrope-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Manrope-ExtraBold.ttf
+          weight: 800
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
