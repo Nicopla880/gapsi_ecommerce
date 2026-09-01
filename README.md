@@ -33,51 +33,6 @@ llamadas a la API fallarán con 401.
 > de proxy, no embebida en el cliente. Un `--dart-define` no es un secreto: queda
 > dentro del binario y es recuperable de un APK o IPA descompilado.
 
-## Ícono y splash screen
-
-Ambos se generan a partir de dos imágenes que deben existir antes de correr nada:
-
-| Archivo | Origen | Uso |
-| --- | --- | --- |
-| `app_icon.png` | fuente | Ícono legacy de Android e iOS (1024x1024) |
-| `app_icon_adaptative.png` | fuente | Isotipo a sangre, base de los derivados |
-| `splash_logo.png` | fuente | Arte del splash a pantalla completa (fondo transparente) |
-| `app_icon_adaptive_fg.png` | derivado | Foreground adaptativo Android, logo al 66% |
-| `splash_icon.png` | derivado | Ícono del splash Android 12+, 768px sobre canvas de 1152px |
-| `splash_bg.png` | derivado | `splash_logo.png` aplanado sobre blanco |
-
-Los tres derivados se regeneran desde las fuentes con ImageMagick:
-
-```bash
-magick assets/branding/app_icon_adaptative.png -resize 66% -background none \
-  -gravity center -extent 1254x1254 assets/branding/app_icon_adaptive_fg.png
-magick assets/branding/app_icon_adaptative.png -resize 768x768 -background none \
-  -gravity center -extent 1152x1152 assets/branding/splash_icon.png
-magick assets/branding/splash_logo.png -background white -alpha remove -alpha off \
-  assets/branding/splash_bg.png
-```
-
-El padding no es opcional: Android recorta el foreground adaptativo a la "safe
-zone" (~66% central) y el ícono del splash de Android 12+ a un círculo, así que
-un logo a sangre se corta por los bordes.
-
-Con las imágenes en su lugar, correr **una sola vez** (y de nuevo cada vez que
-cambien):
-
-```bash
-dart run flutter_launcher_icons
-dart run flutter_native_splash:create
-```
-
-Ambos comandos reescriben archivos nativos de `android/` e `ios/`, así que
-conviene correrlos con el worktree limpio para revisar el diff.
-
-La configuración vive fuera del `pubspec.yaml`, en
-[`flutter_launcher_icons.yaml`](flutter_launcher_icons.yaml) y
-[`flutter_native_splash.yaml`](flutter_native_splash.yaml). Colores de marca
-actuales: azul marino `#0B1E4D` (ícono) y celeste claro `#EAF1FB` (fondo del
-splash).
-
 ## Arquitectura
 
 ```
