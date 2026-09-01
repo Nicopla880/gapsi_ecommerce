@@ -6,6 +6,7 @@ import 'package:gapsi_ecommerce/presentation/search/search_notifier.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_providers.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_screen.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_state.dart';
+import 'package:gapsi_ecommerce/presentation/search/widgets/search_headers.dart';
 
 class _FakeSearchNotifier extends SearchNotifier {
   _FakeSearchNotifier(this.initialState);
@@ -91,6 +92,40 @@ void main() {
     expect(find.text('Search products'), findsOneWidget);
   });
 
+  testWidgets('sin historial muestra All seleccionado y ningún recent vacío', (
+    WidgetTester tester,
+  ) async {
+    await _pumpSearchScreen(tester);
+
+    expect(find.text('Discover products'), findsNothing);
+    expect(find.text('Loading recent searches…'), findsNothing);
+    expect(find.byKey(const Key('recentSearchRow')), findsNothing);
+    expect(find.text('All'), findsOneWidget);
+    expect(
+      find.byKey(const Key('quickSearch-All')).hitTestable(),
+      findsOneWidget,
+    );
+
+    final Semantics all = tester.widget<Semantics>(
+      find.byKey(const Key('quickSearchSemantics-All')),
+    );
+    expect(all.properties.selected, isTrue);
+    expect(
+      tester.getSize(find.byKey(const Key('quickSearchIndicator-All'))).width,
+      greaterThan(0),
+    );
+
+    final List<SliverPersistentHeader> headers = tester
+        .widgetList<SliverPersistentHeader>(find.byType(SliverPersistentHeader))
+        .toList(growable: false);
+    final FixedHeaderDelegate discoveryDelegate =
+        headers.last.delegate as FixedHeaderDelegate;
+    expect(
+      discoveryDelegate.extent,
+      SearchHeaderLayout.discoveryQuickOnlyExtent,
+    );
+  });
+
   testWidgets('cada cambio de texto delega la intención al notifier', (
     WidgetTester tester,
   ) async {
@@ -152,6 +187,19 @@ void main() {
     );
 
     expect(find.text('Recent: Nintendo'), findsOneWidget);
+    expect(find.byKey(const Key('recentSearchRow')), findsOneWidget);
+    expect(find.text('Discover products'), findsNothing);
+
+    final List<SliverPersistentHeader> headers = tester
+        .widgetList<SliverPersistentHeader>(find.byType(SliverPersistentHeader))
+        .toList(growable: false);
+    final FixedHeaderDelegate discoveryDelegate =
+        headers.last.delegate as FixedHeaderDelegate;
+    expect(
+      discoveryDelegate.extent,
+      SearchHeaderLayout.discoveryWithRecentExtent,
+    );
+
     await tester.tap(find.byKey(const Key('recentSearchShortcut')));
     await tester.pump();
 

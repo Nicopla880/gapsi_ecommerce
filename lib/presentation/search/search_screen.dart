@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/product.dart';
@@ -23,8 +24,6 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen>
     with SingleTickerProviderStateMixin {
   static const double _paginationThreshold = 320;
-  static const double _primaryHeaderExtent = 72;
-  static const double _discoveryHeaderExtent = 104;
 
   static const List<({String label, String keyword})> _quickSearches =
       <({String label, String keyword})>[
@@ -91,12 +90,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final SearchState searchState = ref.watch(searchNotifierProvider);
     final AsyncValue<List<String>> history = ref.watch(searchHistoryProvider);
     final ThemeData theme = Theme.of(context);
+    final double topInset = MediaQuery.paddingOf(context).top;
+    final String? recentSearch = switch (history) {
+      AsyncData<List<String>>(:final value) when value.isNotEmpty =>
+        value.first,
+      _ => null,
+    };
+    final double discoveryHeaderExtent = recentSearch == null
+        ? SearchHeaderLayout.discoveryQuickOnlyExtent
+        : SearchHeaderLayout.discoveryWithRecentExtent;
+    final SystemUiOverlayStyle overlayStyle =
+        theme.colorScheme.brightness == Brightness.dark
+        ? SystemUiOverlayStyle.light
+        : SystemUiOverlayStyle.dark;
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surfaceContainerLowest,
-      body: SafeArea(
-        bottom: false,
-        child: CustomScrollView(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle.copyWith(statusBarColor: Colors.transparent),
+      child: Scaffold(
+        backgroundColor: theme.colorScheme.surfaceContainerLowest,
+        body: CustomScrollView(
           key: const Key('searchScrollView'),
           controller: _scrollController,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -104,8 +116,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             SliverPersistentHeader(
               pinned: true,
               delegate: FixedHeaderDelegate(
-                extent: _primaryHeaderExtent,
+                extent: SearchHeaderLayout.primaryContentExtent + topInset,
                 child: PrimarySearchHeader(
+                  topInset: topInset,
                   controller: _searchController,
                   focusNode: _searchFocusNode,
                   onChanged: _onSearchChanged,
@@ -116,11 +129,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             SliverPersistentHeader(
               floating: true,
               delegate: FixedHeaderDelegate(
-                extent: _discoveryHeaderExtent,
+                extent: discoveryHeaderExtent,
                 snap: true,
                 tickerProvider: this,
                 child: DiscoveryHeader(
-                  history: history,
+                  recentSearch: recentSearch,
                   quickSearches: _quickSearches,
                   activeKeyword: _searchController.text.trim().toLowerCase(),
                   onSearchSelected: _runSearch,
