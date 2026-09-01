@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/product.dart';
 import '../detail/product_detail_screen.dart';
+import '../favorites/favorites_providers.dart';
 import 'search_providers.dart';
 import 'search_state.dart';
 import 'widgets/product_card.dart';
@@ -102,10 +103,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
+  Future<void> _toggleFavorite(String productId) async {
+    final bool saved = await ref
+        .read(favoritesProvider.notifier)
+        .toggleFavorite(productId);
+    if (!saved && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update favorites.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final SearchState searchState = ref.watch(searchNotifierProvider);
     final AsyncValue<List<String>> history = ref.watch(searchHistoryProvider);
+    final AsyncValue<Set<String>> favorites = ref.watch(favoritesProvider);
     final ThemeData theme = Theme.of(context);
     final double topInset = MediaQuery.paddingOf(context).top;
     final String? recentSearch = switch (history) {
@@ -179,7 +192,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
               ),
             ),
-            ..._contentSlivers(searchState, history),
+            ..._contentSlivers(searchState, history, favorites),
           ],
         ),
       ),
@@ -189,6 +202,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<Widget> _contentSlivers(
     SearchState searchState,
     AsyncValue<List<String>> history,
+    AsyncValue<Set<String>> favorites,
   ) {
     return switch (searchState) {
       SearchInitial() => <Widget>[_initialContent(history)],
@@ -226,7 +240,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
         ],
-      SearchLoaded() => _loadedContent(searchState),
+      SearchLoaded() => _loadedContent(searchState, favorites),
     };
   }
 
@@ -261,8 +275,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  List<Widget> _loadedContent(SearchLoaded state) {
+  List<Widget> _loadedContent(
+    SearchLoaded state,
+    AsyncValue<Set<String>> favorites,
+  ) {
     final double bottomSafeArea = MediaQuery.paddingOf(context).bottom;
+    final Set<String> favoriteIds = switch (favorites) {
+      AsyncData<Set<String>>(:final value) => value,
+      _ => const <String>{},
+    };
+    final bool favoritesReady = favorites is AsyncData<Set<String>>;
     return <Widget>[
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
@@ -283,6 +305,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               key: ValueKey<String>('product-${product.id}'),
               product: product,
               onTap: () => _onProductSelected(product),
+              isFavorite: favoriteIds.contains(product.id),
+              onFavoriteToggle: favoritesReady
+                  ? () => unawaited(_toggleFavorite(product.id))
+                  : null,
             );
           }, childCount: state.products.length),
         ),

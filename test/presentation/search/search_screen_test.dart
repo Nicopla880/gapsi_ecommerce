@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gapsi_ecommerce/domain/entities/product.dart';
 import 'package:gapsi_ecommerce/presentation/detail/product_detail_screen.dart';
+import 'package:gapsi_ecommerce/presentation/favorites/favorites_notifier.dart';
+import 'package:gapsi_ecommerce/presentation/favorites/favorites_providers.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_notifier.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_providers.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_screen.dart';
@@ -36,6 +38,25 @@ class _FakeSearchNotifier extends SearchNotifier {
   void emit(SearchState next) => state = next;
 }
 
+class _FakeFavoritesNotifier extends FavoritesNotifier {
+  _FakeFavoritesNotifier(this.initialIds);
+
+  final Set<String> initialIds;
+  int toggleCalls = 0;
+
+  @override
+  Future<Set<String>> build() async => Set<String>.unmodifiable(initialIds);
+
+  @override
+  Future<bool> toggleFavorite(String productId) async {
+    toggleCalls++;
+    final Set<String> updated = Set<String>.of(state.requireValue);
+    if (!updated.add(productId)) updated.remove(productId);
+    state = AsyncData<Set<String>>(Set<String>.unmodifiable(updated));
+    return true;
+  }
+}
+
 const Product _console = Product(
   id: 'console-1',
   title: 'Nintendo Switch OLED Console',
@@ -49,8 +70,12 @@ Future<_FakeSearchNotifier> _pumpSearchScreen(
   List<String> history = const <String>[],
   ValueChanged<Product>? onProductTap,
   TextScaler? textScaler,
+  Set<String> favoriteIds = const <String>{},
+  _FakeFavoritesNotifier? favoritesNotifier,
 }) async {
   late _FakeSearchNotifier notifier;
+  final _FakeFavoritesNotifier resolvedFavoritesNotifier =
+      favoritesNotifier ?? _FakeFavoritesNotifier(favoriteIds);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -61,6 +86,7 @@ Future<_FakeSearchNotifier> _pumpSearchScreen(
         searchHistoryProvider.overrideWith(
           (Ref ref) async => List<String>.unmodifiable(history),
         ),
+        favoritesProvider.overrideWith(() => resolvedFavoritesNotifier),
       ],
       child: MaterialApp(
         theme: ThemeData(
@@ -309,6 +335,61 @@ void main() {
     expect(find.text(r'$349.99'), findsOneWidget);
     expect(find.text('Price unavailable'), findsOneWidget);
     expect(find.byKey(const Key('productImagePlaceholder')), findsNWidgets(2));
+    expect(
+      find.byKey(const ValueKey<String>('favoriteOutline-console-1')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('favorito persistido se renderiza al inicializar provider', (
+    WidgetTester tester,
+  ) async {
+    await _pumpSearchScreen(
+      tester,
+      initialState: SearchLoaded(
+        products: const <Product>[_console],
+        currentPage: 1,
+        hasReachedMax: true,
+      ),
+      favoriteIds: const <String>{'console-1'},
+    );
+
+    expect(
+      find.byKey(const ValueKey<String>('favoriteFilled-console-1')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Remove from favorites'), findsOneWidget);
+  });
+
+  testWidgets('tap en corazón agrega favorito sin abrir la tarjeta', (
+    WidgetTester tester,
+  ) async {
+    Product? selected;
+    final _FakeFavoritesNotifier favoritesNotifier = _FakeFavoritesNotifier(
+      const <String>{},
+    );
+    await _pumpSearchScreen(
+      tester,
+      initialState: SearchLoaded(
+        products: const <Product>[_console],
+        currentPage: 1,
+        hasReachedMax: true,
+      ),
+      onProductTap: (Product product) => selected = product,
+      favoritesNotifier: favoritesNotifier,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('favoriteButton-console-1')),
+    );
+    await tester.pump();
+
+    expect(selected, isNull);
+    expect(favoritesNotifier.toggleCalls, 1);
+    expect(
+      find.byKey(const ValueKey<String>('favoriteFilled-console-1')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('ProductCard propaga el tap preparado para detalle', (
@@ -339,15 +420,30 @@ void main() {
         currentPage: 1,
         hasReachedMax: true,
       );
+      final _FakeFavoritesNotifier favoritesNotifier = _FakeFavoritesNotifier(
+        const <String>{'console-1'},
+      );
       final _FakeSearchNotifier notifier = await _pumpSearchScreen(
         tester,
         initialState: loadedState,
+        favoritesNotifier: favoritesNotifier,
       );
 
       await tester.tap(find.byKey(const ValueKey<String>('product-console-1')));
       await tester.pumpAndSettle();
 
       expect(find.byType(ProductDetailScreen), findsOneWidget);
+      expect(
+        find.byKey(const Key('productDetailFavoriteFilled')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('productDetailFavoriteButton')));
+      await tester.pump();
+      expect(
+        find.byKey(const Key('productDetailFavoriteOutline')),
+        findsOneWidget,
+      );
+
       final Finder detailScrollable = find.descendant(
         of: find.byKey(const Key('productDetailScrollView')),
         matching: find.byType(Scrollable),
@@ -373,6 +469,11 @@ void main() {
       expect(find.byType(ProductDetailScreen), findsNothing);
       expect(find.byKey(const Key('productGrid')), findsOneWidget);
       expect(find.text('Nintendo Switch OLED Console'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('favoriteOutline-console-1')),
+        findsOneWidget,
+      );
+      expect(favoritesNotifier.toggleCalls, 1);
       expect(notifier.state, same(loadedState));
       expect(notifier.searchIntents, isEmpty);
       expect(notifier.loadNextPageCalls, 0);

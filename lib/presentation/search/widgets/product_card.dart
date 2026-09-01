@@ -4,10 +4,18 @@ import '../../../domain/entities/product.dart';
 import '../../widgets/product_image.dart';
 
 class ProductCard extends StatelessWidget {
-  const ProductCard({required this.product, this.onTap, super.key});
+  const ProductCard({
+    required this.product,
+    this.onTap,
+    this.isFavorite = false,
+    this.onFavoriteToggle,
+    super.key,
+  });
 
   final Product product;
   final VoidCallback? onTap;
+  final bool isFavorite;
+  final VoidCallback? onFavoriteToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -27,9 +35,33 @@ class ProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Expanded(
-              child: ColoredBox(
-                color: theme.colorScheme.surfaceContainerLowest,
-                child: SizedBox.expand(child: ProductImage(product: product)),
+              child: Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  ColoredBox(
+                    color: theme.colorScheme.surfaceContainerLowest,
+                    child: ProductImage(product: product),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: IconButton.filledTonal(
+                      key: ValueKey<String>('favoriteButton-${product.id}'),
+                      tooltip: isFavorite
+                          ? 'Remove from favorites'
+                          : 'Add to favorites',
+                      onPressed: onFavoriteToggle,
+                      icon: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        key: ValueKey<String>(
+                          '${isFavorite ? 'favoriteFilled' : 'favoriteOutline'}-'
+                          '${product.id}',
+                        ),
+                        color: isFavorite ? theme.colorScheme.primary : null,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             Padding(

@@ -1,10 +1,13 @@
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/datasources/local/favorites_local_datasource.dart';
 import '../../data/datasources/local/search_history_local_datasource.dart';
 import '../../data/datasources/remote/walmart_remote_datasource.dart';
+import '../../data/repositories/favorites_repository_impl.dart';
 import '../../data/repositories/product_repository_impl.dart';
 import '../../data/repositories/search_history_repository_impl.dart';
+import '../../domain/repositories/favorites_repository.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../../domain/repositories/search_history_repository.dart';
 import '../network/dio_client.dart';
@@ -32,6 +35,9 @@ Future<void> setupServiceLocator() async {
   getIt.registerLazySingleton<SearchHistoryLocalDataSource>(
     () => SearchHistoryLocalDataSourceImpl(getIt<SharedPreferences>()),
   );
+  getIt.registerLazySingleton<FavoritesLocalDataSource>(
+    () => FavoritesLocalDataSourceImpl(getIt<SharedPreferences>()),
+  );
 
   // Repositorios: el domain solo conoce la interfaz.
   getIt.registerLazySingleton<ProductRepository>(
@@ -39,5 +45,8 @@ Future<void> setupServiceLocator() async {
   );
   getIt.registerLazySingleton<SearchHistoryRepository>(
     () => SearchHistoryRepositoryImpl(getIt<SearchHistoryLocalDataSource>()),
+  );
+  getIt.registerLazySingleton<FavoritesRepository>(
+    () => FavoritesRepositoryImpl(getIt<FavoritesLocalDataSource>()),
   );
 }

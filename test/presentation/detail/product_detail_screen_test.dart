@@ -1,29 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gapsi_ecommerce/domain/entities/product.dart';
 import 'package:gapsi_ecommerce/presentation/detail/product_detail_screen.dart';
+import 'package:gapsi_ecommerce/presentation/favorites/favorites_notifier.dart';
+import 'package:gapsi_ecommerce/presentation/favorites/favorites_providers.dart';
+
+class _FakeFavoritesNotifier extends FavoritesNotifier {
+  _FakeFavoritesNotifier(this.initialIds);
+
+  final Set<String> initialIds;
+
+  @override
+  Future<Set<String>> build() async => Set<String>.unmodifiable(initialIds);
+
+  @override
+  Future<bool> toggleFavorite(String productId) async {
+    final Set<String> updated = Set<String>.of(state.requireValue);
+    if (!updated.add(productId)) updated.remove(productId);
+    state = AsyncData<Set<String>>(Set<String>.unmodifiable(updated));
+    return true;
+  }
+}
 
 Future<void> _pumpDetail(
   WidgetTester tester,
   Product product, {
   TextScaler? textScaler,
+  Set<String> favoriteIds = const <String>{},
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B1E4D)),
-        useMaterial3: true,
+    ProviderScope(
+      overrides: [
+        favoritesProvider.overrideWith(
+          () => _FakeFavoritesNotifier(favoriteIds),
+        ),
+      ],
+      child: MaterialApp(
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B1E4D)),
+          useMaterial3: true,
+        ),
+        builder: (BuildContext context, Widget? child) {
+          if (textScaler == null) return child!;
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child!,
+          );
+        },
+        home: ProductDetailScreen(product: product),
       ),
-      builder: (BuildContext context, Widget? child) {
-        if (textScaler == null) return child!;
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: textScaler),
-          child: child!,
-        );
-      },
-      home: ProductDetailScreen(product: product),
     ),
   );
+  await tester.pump();
   await tester.pump();
 }
 
@@ -37,6 +66,31 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
 }
 
 void main() {
+  testWidgets('refleja favorito persistido y permite quitarlo', (
+    WidgetTester tester,
+  ) async {
+    await _pumpDetail(
+      tester,
+      const Product(id: 'favorite', title: 'Favorite product'),
+      favoriteIds: const <String>{'favorite'},
+    );
+
+    expect(
+      find.byKey(const Key('productDetailFavoriteFilled')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Remove from favorites'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('productDetailFavoriteButton')));
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('productDetailFavoriteOutline')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Add to favorites'), findsOneWidget);
+  });
+
   testWidgets('muestra datos reales e infraestructura de imagen de red', (
     WidgetTester tester,
   ) async {

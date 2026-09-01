@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/product.dart';
+import '../favorites/favorites_providers.dart';
 import '../widgets/product_image.dart';
 
-class ProductDetailScreen extends StatelessWidget {
+class ProductDetailScreen extends ConsumerWidget {
   const ProductDetailScreen({required this.product, super.key});
 
   final Product product;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ThemeData theme = Theme.of(context);
     final String title = product.title.trim().isEmpty
         ? 'Product name unavailable'
@@ -21,6 +23,12 @@ class ProductDetailScreen extends StatelessWidget {
         _descriptionToPlainText(product.description) ??
         'Description unavailable';
     final double bottomInset = MediaQuery.paddingOf(context).bottom;
+    final AsyncValue<Set<String>> favorites = ref.watch(favoritesProvider);
+    final bool isFavorite = switch (favorites) {
+      AsyncData<Set<String>>(:final value) => value.contains(product.id),
+      _ => false,
+    };
+    final bool favoritesReady = favorites is AsyncData<Set<String>>;
 
     return Scaffold(
       key: const Key('productDetailScreen'),
@@ -35,6 +43,35 @@ class ProductDetailScreen extends StatelessWidget {
         backgroundColor: theme.colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 1,
+        actions: <Widget>[
+          IconButton(
+            key: const Key('productDetailFavoriteButton'),
+            tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
+            onPressed: favoritesReady
+                ? () async {
+                    final bool saved = await ref
+                        .read(favoritesProvider.notifier)
+                        .toggleFavorite(product.id);
+                    if (!saved && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Could not update favorites.'),
+                        ),
+                      );
+                    }
+                  }
+                : null,
+            icon: Icon(
+              isFavorite ? Icons.favorite : Icons.favorite_border,
+              key: Key(
+                isFavorite
+                    ? 'productDetailFavoriteFilled'
+                    : 'productDetailFavoriteOutline',
+              ),
+              color: isFavorite ? theme.colorScheme.primary : null,
+            ),
+          ),
+        ],
       ),
       body: CustomScrollView(
         key: const Key('productDetailScrollView'),
