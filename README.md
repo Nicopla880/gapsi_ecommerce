@@ -81,7 +81,7 @@ perfil **GAPSI**) que ya pasa el `--dart-define-from-file`.
 
 ```bash
 flutter analyze   # sin issues
-flutter test      # 104 pruebas
+flutter test      # 110 pruebas
 ```
 
 Para una sola suite o con cobertura:
@@ -107,6 +107,7 @@ Qué cubre la suite:
 | Repositorios y persistencia (incluida la migración de favoritos) | `test/data/repositories/*` |
 | Favoritos: toggle optimista y reversión ante fallo | `test/presentation/favorites/favorites_notifier_test.dart` |
 | Widgets: búsqueda, grilla, detalle, escalado de texto, headers | `test/presentation/**/*_screen_test.dart` |
+| ProductCard aislada: fallbacks de precio y título, favorito | `test/presentation/search/widgets/product_card_test.dart` |
 | Design system: tema, tipografía, animaciones, accesibilidad | `test/design_system/gapsi_design_system_test.dart` |
 
 ## Arquitectura
