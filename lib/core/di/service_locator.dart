@@ -3,6 +3,7 @@ import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/datasources/local/favorites_local_datasource.dart';
+import '../../data/datasources/local/product_cache_local_datasource.dart';
 import '../../data/datasources/local/search_history_local_datasource.dart';
 import '../../data/datasources/remote/walmart_remote_datasource.dart';
 import '../../data/repositories/favorites_repository_impl.dart';
@@ -34,6 +35,9 @@ Future<void> setupServiceLocator() async {
   final Box<dynamic> favoritesBox = await Hive.openBox<dynamic>(
     FavoritesLocalDataSourceImpl.boxName,
   );
+  final Box<dynamic> productCacheBox = await Hive.openBox<dynamic>(
+    ProductCacheLocalDataSourceImpl.boxName,
+  );
 
   // Datasources
   getIt.registerLazySingleton<WalmartRemoteDataSource>(
@@ -45,10 +49,16 @@ Future<void> setupServiceLocator() async {
   getIt.registerLazySingleton<FavoritesLocalDataSource>(
     () => FavoritesLocalDataSourceImpl(favoritesBox),
   );
+  getIt.registerLazySingleton<ProductCacheLocalDataSource>(
+    () => ProductCacheLocalDataSourceImpl(productCacheBox),
+  );
 
   // Repositorios: el domain solo conoce la interfaz.
   getIt.registerLazySingleton<ProductRepository>(
-    () => ProductRepositoryImpl(getIt<WalmartRemoteDataSource>()),
+    () => ProductRepositoryImpl(
+      getIt<WalmartRemoteDataSource>(),
+      getIt<ProductCacheLocalDataSource>(),
+    ),
   );
   getIt.registerLazySingleton<SearchHistoryRepository>(
     () => SearchHistoryRepositoryImpl(getIt<SearchHistoryLocalDataSource>()),

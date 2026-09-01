@@ -3,6 +3,7 @@ import 'package:hive/hive.dart';
 import '../../../core/errors/exceptions.dart';
 import '../../../domain/entities/favorites_collection.dart';
 import '../../../domain/entities/product.dart';
+import '../../models/product_snapshot.dart';
 
 abstract class FavoritesLocalDataSource {
   Future<FavoritesCollection> getFavorites();
@@ -46,7 +47,7 @@ class FavoritesLocalDataSourceImpl implements FavoritesLocalDataSource {
     return FavoritesCollection(
       products: rawProducts
           .whereType<Map<dynamic, dynamic>>()
-          .map(_productFromStored)
+          .map(productFromStored)
           .whereType<Product>(),
       legacyIds: rawLegacyIds.whereType<String>(),
     );
@@ -57,7 +58,7 @@ class FavoritesLocalDataSourceImpl implements FavoritesLocalDataSource {
     try {
       await _box.put(_storageKey, <String, Object>{
         'version': 2,
-        'products': favorites.products.map(_productToStored).toList(),
+        'products': favorites.products.map(productToStored).toList(),
         'legacyIds': favorites.legacyIds.toList()..sort(),
       });
       await _box.delete(_legacyStorageKey);
@@ -74,29 +75,4 @@ class FavoritesLocalDataSourceImpl implements FavoritesLocalDataSource {
     if (stored is! List) return FavoritesCollection();
     return FavoritesCollection(legacyIds: stored.whereType<String>());
   }
-}
-
-Map<String, Object?> _productToStored(Product product) => <String, Object?>{
-  'id': product.id,
-  'title': product.title,
-  'price': product.price,
-  'thumbnailUrl': product.thumbnailUrl,
-  'description': product.description,
-};
-
-Product? _productFromStored(Map<dynamic, dynamic> stored) {
-  final Object? rawId = stored['id'];
-  if (rawId is! String || rawId.trim().isEmpty) return null;
-  final Object? rawPrice = stored['price'];
-  return Product(
-    id: rawId.trim(),
-    title: stored['title'] is String ? stored['title'] as String : '',
-    price: rawPrice is num ? rawPrice.toDouble() : null,
-    thumbnailUrl: stored['thumbnailUrl'] is String
-        ? stored['thumbnailUrl'] as String
-        : null,
-    description: stored['description'] is String
-        ? stored['description'] as String
-        : null,
-  );
 }

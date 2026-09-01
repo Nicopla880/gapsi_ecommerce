@@ -81,7 +81,7 @@ perfil **GAPSI**) que ya pasa el `--dart-define-from-file`.
 
 ```bash
 flutter analyze   # sin issues
-flutter test      # 98 pruebas
+flutter test      # 104 pruebas
 ```
 
 Para una sola suite o con cobertura:
@@ -188,6 +188,28 @@ En ambos casos el motor queda encapsulado en su `*LocalDataSource`: los
 repositorios y el dominio no saben qué hay debajo, así que cambiar de motor no
 se propaga hacia arriba.
 
+### Caché de resultados
+
+Las páginas de resultados se cachean en Hive por `(keyword, página)`, con una
+estrategia **cache-first con TTL de 10 minutos y respaldo ante fallo**:
+
+1. Si hay una página cacheada **fresca**, se sirve sin tocar la red. Repetir una
+   búsqueda dentro de la sesión es instantáneo, algo que se nota porque el API
+   tarda varios segundos por request.
+2. Si venció o no existe, se pide al API y la respuesta se cachea.
+3. Si el API falla y hay una copia **vencida**, se sirve esa copia. Una caché
+   vieja es mejor que una pantalla de error, y nunca se antepone a una respuesta
+   fresca.
+
+El TTL es un compromiso deliberado: los precios cambian, así que la caché no
+puede durar horas, pero tampoco tiene sentido repetir una espera de varios
+segundos por la misma consulta.
+
+El box está acotado a 60 páginas y descarta las entradas más viejas primero: es
+una comodidad, no un espejo del catálogo. Y la caché es una optimización, no una
+dependencia: si la lectura o la escritura fallan, la búsqueda sigue su curso
+contra el API en lugar de romper.
+
 ### Consumo de API — dio
 
 `dio` sobre el `http` de la SDK por los interceptores, los timeouts por request y
@@ -265,6 +287,7 @@ Bonus implementados:
 
 - **Favoritos persistentes** con toggle optimista y reversión si falla la
   escritura, más una colección de favoritos navegable desde el header.
+- **Caché local de resultados** en Hive, con TTL y respaldo ante fallo del API.
 - **Reintento** de la búsqueda inicial y de la página que falló.
 - **Pruebas de widget** además de las de lógica.
 - **Accesibilidad y tamaños de pantalla**: escalado de texto del sistema
@@ -274,8 +297,6 @@ Bonus implementados:
 
 ## Limitaciones conocidas
 
-- **Sin caché local de resultados** (bonus no implementado): cada búsqueda
-  golpea el API. El historial y los favoritos sí persisten.
 - **Solo tema claro**, decisión deliberada explicada arriba.
 - **Orientación fija en vertical**.
 - El API de RapidAPI es lento e inestable por momentos (respuestas de más de
