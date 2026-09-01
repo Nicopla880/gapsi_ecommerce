@@ -37,10 +37,29 @@ llamadas a la API fallarán con 401.
 
 Ambos se generan a partir de dos imágenes que deben existir antes de correr nada:
 
-| Archivo | Uso |
-| --- | --- |
-| `assets/branding/app_icon.png` | Ícono de la app, cuadrado, 1024x1024, sin transparencia |
-| `assets/branding/splash_logo.png` | Logo centrado del splash, PNG con fondo transparente |
+| Archivo | Origen | Uso |
+| --- | --- | --- |
+| `app_icon.png` | fuente | Ícono legacy de Android e iOS (1024x1024) |
+| `app_icon_adaptative.png` | fuente | Isotipo a sangre, base de los derivados |
+| `splash_logo.png` | fuente | Arte del splash a pantalla completa (fondo transparente) |
+| `app_icon_adaptive_fg.png` | derivado | Foreground adaptativo Android, logo al 66% |
+| `splash_icon.png` | derivado | Ícono del splash Android 12+, 768px sobre canvas de 1152px |
+| `splash_bg.png` | derivado | `splash_logo.png` aplanado sobre blanco |
+
+Los tres derivados se regeneran desde las fuentes con ImageMagick:
+
+```bash
+magick assets/branding/app_icon_adaptative.png -resize 66% -background none \
+  -gravity center -extent 1254x1254 assets/branding/app_icon_adaptive_fg.png
+magick assets/branding/app_icon_adaptative.png -resize 768x768 -background none \
+  -gravity center -extent 1152x1152 assets/branding/splash_icon.png
+magick assets/branding/splash_logo.png -background white -alpha remove -alpha off \
+  assets/branding/splash_bg.png
+```
+
+El padding no es opcional: Android recorta el foreground adaptativo a la "safe
+zone" (~66% central) y el ícono del splash de Android 12+ a un círculo, así que
+un logo a sangre se corta por los bordes.
 
 Con las imágenes en su lugar, correr **una sola vez** (y de nuevo cada vez que
 cambien):

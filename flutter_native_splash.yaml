@@ -1,15 +1,20 @@
 # Splash screen nativo. Regenerar con:
 #   dart run flutter_native_splash:create
 flutter_native_splash:
-  color: "#EAF1FB"
-  image: assets/branding/splash_logo.png
+  # Arte de marca a pantalla completa. OJO: `color` y `background_image` son
+  # mutuamente excluyentes — si se declaran los dos, gana `color` y el arte se
+  # descarta silenciosamente (queda un PNG de 1x1). El original es transparente,
+  # por eso se versiona la variante ya aplanada sobre blanco.
+  background_image: assets/branding/splash_bg.png
 
   android: true
   ios: true
   web: false
 
-  # Android 12+ usa una API de splash distinta y requiere su propio bloque.
+  # Android 12+ ignora el arte a pantalla completa: dibuja un ícono recortado en
+  # círculo sobre un color liso. Por eso acá va solo el isotipo, con el padding
+  # que pide la spec (logo de 768px dentro de un canvas de 1152px).
   android_12:
-    color: "#EAF1FB"
-    image: assets/branding/splash_logo.png
-    icon_background_color: "#EAF1FB"
+    color: "#FFFFFF"
+    image: assets/branding/splash_icon.png
+    icon_background_color: "#FFFFFF"
