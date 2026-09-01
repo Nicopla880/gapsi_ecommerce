@@ -1,5 +1,12 @@
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/datasources/local/search_history_local_datasource.dart';
+import '../../data/datasources/remote/walmart_remote_datasource.dart';
+import '../../data/repositories/product_repository_impl.dart';
+import '../../data/repositories/search_history_repository_impl.dart';
+import '../../domain/repositories/product_repository.dart';
+import '../../domain/repositories/search_history_repository.dart';
 import '../network/dio_client.dart';
 
 /// Contenedor de dependencias de las capas de datos y core.
@@ -9,10 +16,28 @@ import '../network/dio_client.dart';
 final GetIt getIt = GetIt.instance;
 
 /// Registra las dependencias. Se llama una sola vez desde `main()`, antes de
-/// `runApp`.
-void setupServiceLocator() {
+/// `runApp`, y hay que esperarla: `SharedPreferences` se resuelve async.
+Future<void> setupServiceLocator() async {
   // Core
   getIt.registerLazySingleton<DioClient>(DioClient.new);
 
-  // TODO(gapsi): registrar datasources y repositorios a medida que se agreguen.
+  // Externas
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  getIt.registerLazySingleton<SharedPreferences>(() => prefs);
+
+  // Datasources
+  getIt.registerLazySingleton<WalmartRemoteDataSource>(
+    () => WalmartRemoteDataSourceImpl(getIt<DioClient>().dio),
+  );
+  getIt.registerLazySingleton<SearchHistoryLocalDataSource>(
+    () => SearchHistoryLocalDataSourceImpl(getIt<SharedPreferences>()),
+  );
+
+  // Repositorios: el domain solo conoce la interfaz.
+  getIt.registerLazySingleton<ProductRepository>(
+    () => ProductRepositoryImpl(getIt<WalmartRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<SearchHistoryRepository>(
+    () => SearchHistoryRepositoryImpl(getIt<SearchHistoryLocalDataSource>()),
+  );
 }

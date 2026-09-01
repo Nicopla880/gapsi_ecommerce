@@ -51,11 +51,15 @@ class DioClient {
         cancelToken: cancelToken,
       );
     } on DioException catch (error) {
-      throw _mapError(error);
+      throw mapDioError(error);
     }
   }
 
-  Exception _mapError(DioException error) {
+  /// Traduce un [DioException] a las excepciones de `core/errors`.
+  ///
+  /// Es estático y público a propósito: los datasources que reciben un [Dio]
+  /// crudo lo reutilizan en vez de duplicar el mapeo.
+  static Exception mapDioError(DioException error) {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:

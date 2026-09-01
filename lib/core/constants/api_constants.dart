@@ -5,6 +5,9 @@ abstract final class ApiConstants {
 
   static const String searchEndpoint = '/wlm/walmart-search-by-keyword';
 
+  /// Criterio de orden por defecto del endpoint de búsqueda.
+  static const String defaultSortBy = 'best_match';
+
   /// Nombres de los headers que exige RapidAPI en cada request.
   static const String apiKeyHeader = 'x-rapidapi-key';
   static const String apiHostHeader = 'x-rapidapi-host';

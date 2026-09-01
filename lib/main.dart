@@ -7,7 +7,7 @@ import 'core/di/service_locator.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
-  setupServiceLocator();
+  await setupServiceLocator();
   runApp(const ProviderScope(child: GapsiApp()));
 }
 
