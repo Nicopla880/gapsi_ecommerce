@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gapsi_ecommerce/domain/entities/product.dart';
+import 'package:gapsi_ecommerce/presentation/detail/product_detail_screen.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_notifier.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_providers.dart';
 import 'package:gapsi_ecommerce/presentation/search/search_screen.dart';
@@ -39,6 +40,7 @@ const Product _console = Product(
   id: 'console-1',
   title: 'Nintendo Switch OLED Console',
   price: 349.99,
+  description: 'OLED gaming system with detachable controllers.',
 );
 
 Future<_FakeSearchNotifier> _pumpSearchScreen(
@@ -328,6 +330,54 @@ void main() {
 
     expect(selected, _console);
   });
+
+  testWidgets(
+    'tap abre detalle y volver conserva resultados sin nueva búsqueda',
+    (WidgetTester tester) async {
+      final SearchLoaded loadedState = SearchLoaded(
+        products: const <Product>[_console],
+        currentPage: 1,
+        hasReachedMax: true,
+      );
+      final _FakeSearchNotifier notifier = await _pumpSearchScreen(
+        tester,
+        initialState: loadedState,
+      );
+
+      await tester.tap(find.byKey(const ValueKey<String>('product-console-1')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProductDetailScreen), findsOneWidget);
+      final Finder detailScrollable = find.descendant(
+        of: find.byKey(const Key('productDetailScrollView')),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('productDetailTitle')),
+        300,
+        scrollable: detailScrollable,
+      );
+      await tester.pump();
+
+      expect(find.text('Nintendo Switch OLED Console'), findsOneWidget);
+      expect(find.text(r'$349.99'), findsOneWidget);
+      expect(
+        find.text('OLED gaming system with detachable controllers.'),
+        findsOneWidget,
+      );
+      expect(notifier.searchIntents, isEmpty);
+
+      await tester.tap(find.byKey(const Key('productDetailBackButton')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProductDetailScreen), findsNothing);
+      expect(find.byKey(const Key('productGrid')), findsOneWidget);
+      expect(find.text('Nintendo Switch OLED Console'), findsOneWidget);
+      expect(notifier.state, same(loadedState));
+      expect(notifier.searchIntents, isEmpty);
+      expect(notifier.loadNextPageCalls, 0);
+    },
+  );
 
   testWidgets('resultado vacío presenta mensaje y mantiene búsqueda', (
     WidgetTester tester,

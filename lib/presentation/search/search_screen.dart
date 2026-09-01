@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/product.dart';
+import '../detail/product_detail_screen.dart';
 import 'search_providers.dart';
 import 'search_state.dart';
 import 'widgets/product_card.dart';
@@ -14,7 +15,7 @@ import 'widgets/search_headers.dart';
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({this.onProductTap, super.key});
 
-  /// Punto de integración preparado para la navegación de detalle del Prompt 9.
+  /// Permite reemplazar la navegación en integraciones o pruebas específicas.
   final ValueChanged<Product>? onProductTap;
 
   @override
@@ -82,6 +83,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _searchController.clear();
     setState(() {});
     ref.read(searchNotifierProvider.notifier).onSearchChanged('');
+  }
+
+  void _onProductSelected(Product product) {
+    final ValueChanged<Product>? callback = widget.onProductTap;
+    if (callback != null) {
+      callback(product);
+      return;
+    }
+
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) =>
+              ProductDetailScreen(product: product),
+        ),
+      ),
+    );
   }
 
   @override
@@ -264,9 +282,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             return ProductCard(
               key: ValueKey<String>('product-${product.id}'),
               product: product,
-              onTap: widget.onProductTap == null
-                  ? null
-                  : () => widget.onProductTap!(product),
+              onTap: () => _onProductSelected(product),
             );
           }, childCount: state.products.length),
         ),

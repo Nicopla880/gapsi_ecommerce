@@ -1,7 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../domain/entities/product.dart';
+import '../../widgets/product_image.dart';
 
 class ProductCard extends StatelessWidget {
   const ProductCard({required this.product, this.onTap, super.key});
@@ -29,7 +29,7 @@ class ProductCard extends StatelessWidget {
             Expanded(
               child: ColoredBox(
                 color: theme.colorScheme.surfaceContainerLowest,
-                child: SizedBox.expand(child: _ProductImage(product: product)),
+                child: SizedBox.expand(child: ProductImage(product: product)),
               ),
             ),
             Padding(
@@ -69,50 +69,6 @@ class ProductCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ProductImage extends StatelessWidget {
-  const _ProductImage({required this.product});
-
-  final Product product;
-
-  @override
-  Widget build(BuildContext context) {
-    final String? url = product.thumbnailUrl?.trim();
-    if (url == null || url.isEmpty) {
-      return const _ImagePlaceholder();
-    }
-
-    return CachedNetworkImage(
-      imageUrl: url,
-      fit: BoxFit.contain,
-      placeholder: (BuildContext context, String imageUrl) => const Center(
-        child: SizedBox.square(
-          dimension: 22,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
-      errorWidget: (BuildContext context, String imageUrl, Object error) {
-        return const _ImagePlaceholder();
-      },
-    );
-  }
-}
-
-class _ImagePlaceholder extends StatelessWidget {
-  const _ImagePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      key: const Key('productImagePlaceholder'),
-      child: Icon(
-        Icons.image_outlined,
-        size: 42,
-        color: Theme.of(context).colorScheme.outline,
       ),
     );
   }
