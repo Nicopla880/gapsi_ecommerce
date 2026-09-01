@@ -21,8 +21,7 @@ class SearchScreen extends ConsumerStatefulWidget {
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends ConsumerState<SearchScreen>
-    with SingleTickerProviderStateMixin {
+class _SearchScreenState extends ConsumerState<SearchScreen> {
   static const double _paginationThreshold = 320;
 
   static const List<({String label, String keyword})> _quickSearches =
@@ -99,6 +98,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final double discoveryHeaderExtent = recentSearch == null
         ? SearchHeaderLayout.discoveryQuickOnlyExtent
         : SearchHeaderLayout.discoveryWithRecentExtent;
+    final double collapsedHeaderExtent =
+        SearchHeaderLayout.primaryContentExtent + topInset;
     final SystemUiOverlayStyle overlayStyle =
         theme.colorScheme.brightness == Brightness.dark
         ? SystemUiOverlayStyle.light
@@ -113,31 +114,46 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           controller: _scrollController,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: <Widget>[
-            SliverPersistentHeader(
+            SliverAppBar(
+              key: const Key('searchSliverAppBar'),
               pinned: true,
-              delegate: FixedHeaderDelegate(
-                extent: SearchHeaderLayout.primaryContentExtent + topInset,
-                child: PrimarySearchHeader(
-                  topInset: topInset,
-                  controller: _searchController,
-                  focusNode: _searchFocusNode,
-                  onChanged: _onSearchChanged,
-                  onClear: _clearSearch,
-                ),
-              ),
-            ),
-            SliverPersistentHeader(
               floating: true,
-              delegate: FixedHeaderDelegate(
-                extent: discoveryHeaderExtent,
-                snap: true,
-                tickerProvider: this,
-                child: DiscoveryHeader(
-                  recentSearch: recentSearch,
-                  quickSearches: _quickSearches,
-                  activeKeyword: _searchController.text.trim().toLowerCase(),
-                  onSearchSelected: _runSearch,
-                  onAllSelected: _clearSearch,
+              snap: true,
+              primary: false,
+              automaticallyImplyLeading: false,
+              toolbarHeight: collapsedHeaderExtent,
+              collapsedHeight: collapsedHeaderExtent,
+              expandedHeight: collapsedHeaderExtent + discoveryHeaderExtent,
+              titleSpacing: 0,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              backgroundColor: theme.colorScheme.surface,
+              surfaceTintColor: Colors.transparent,
+              clipBehavior: Clip.hardEdge,
+              title: PrimarySearchHeader(
+                topInset: topInset,
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                onChanged: _onSearchChanged,
+                onClear: _clearSearch,
+              ),
+              flexibleSpace: ClipRect(
+                child: OverflowBox(
+                  alignment: Alignment.bottomCenter,
+                  minHeight: discoveryHeaderExtent,
+                  maxHeight: discoveryHeaderExtent,
+                  child: SizedBox(
+                    height: discoveryHeaderExtent,
+                    child: DiscoveryHeader(
+                      recentSearch: recentSearch,
+                      quickSearches: _quickSearches,
+                      activeKeyword: _searchController.text
+                          .trim()
+                          .toLowerCase(),
+                      onSearchSelected: _runSearch,
+                      onAllSelected: _clearSearch,
+                    ),
+                  ),
                 ),
               ),
             ),

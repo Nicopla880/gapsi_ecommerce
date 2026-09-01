@@ -115,13 +115,11 @@ void main() {
       greaterThan(0),
     );
 
-    final List<SliverPersistentHeader> headers = tester
-        .widgetList<SliverPersistentHeader>(find.byType(SliverPersistentHeader))
-        .toList(growable: false);
-    final FixedHeaderDelegate discoveryDelegate =
-        headers.last.delegate as FixedHeaderDelegate;
+    final SliverAppBar appBar = tester.widget<SliverAppBar>(
+      find.byKey(const Key('searchSliverAppBar')),
+    );
     expect(
-      discoveryDelegate.extent,
+      appBar.expandedHeight! - appBar.collapsedHeight!,
       SearchHeaderLayout.discoveryQuickOnlyExtent,
     );
   });
@@ -190,13 +188,11 @@ void main() {
     expect(find.byKey(const Key('recentSearchRow')), findsOneWidget);
     expect(find.text('Discover products'), findsNothing);
 
-    final List<SliverPersistentHeader> headers = tester
-        .widgetList<SliverPersistentHeader>(find.byType(SliverPersistentHeader))
-        .toList(growable: false);
-    final FixedHeaderDelegate discoveryDelegate =
-        headers.last.delegate as FixedHeaderDelegate;
+    final SliverAppBar appBar = tester.widget<SliverAppBar>(
+      find.byKey(const Key('searchSliverAppBar')),
+    );
     expect(
-      discoveryDelegate.extent,
+      appBar.expandedHeight! - appBar.collapsedHeight!,
       SearchHeaderLayout.discoveryWithRecentExtent,
     );
 
@@ -373,36 +369,79 @@ void main() {
     expect(notifier.loadNextPageCalls, greaterThan(0));
   });
 
-  testWidgets('header primario queda visible y discovery colapsa al bajar', (
+  testWidgets('discovery reaparece al invertir el scroll lejos del inicio', (
     WidgetTester tester,
   ) async {
     final List<Product> products = List<Product>.generate(
       30,
       (int index) => Product(id: '$index', title: 'Product $index'),
     );
-    await _pumpSearchScreen(
+    final _FakeSearchNotifier notifier = await _pumpSearchScreen(
       tester,
       initialState: SearchLoaded(
         products: products,
         currentPage: 1,
         hasReachedMax: true,
       ),
+      history: const <String>['Nintendo'],
     );
 
-    final List<SliverPersistentHeader> headers = tester
-        .widgetList<SliverPersistentHeader>(find.byType(SliverPersistentHeader))
-        .toList(growable: false);
-    expect(headers, hasLength(2));
-    expect(headers.first.pinned, isTrue);
-    expect(headers.first.floating, isFalse);
-    expect(headers.last.pinned, isFalse);
-    expect(headers.last.floating, isTrue);
+    final SliverAppBar appBar = tester.widget<SliverAppBar>(
+      find.byKey(const Key('searchSliverAppBar')),
+    );
+    expect(appBar.pinned, isTrue);
+    expect(appBar.floating, isTrue);
+    expect(appBar.snap, isTrue);
+    expect(
+      find.byKey(const Key('recentSearchRow')).hitTestable(),
+      findsOneWidget,
+    );
+
+    final CustomScrollView scrollView = tester.widget<CustomScrollView>(
+      find.byKey(const Key('searchScrollView')),
+    );
+    await tester.drag(
+      find.byKey(const Key('searchScrollView')),
+      const Offset(0, -900),
+    );
+    await tester.pumpAndSettle();
+    final double deepOffset = scrollView.controller!.offset;
+    expect(deepOffset, greaterThan(0));
+    expect(find.byKey(const Key('searchField')).hitTestable(), findsOneWidget);
+    expect(
+      find.byKey(const Key('quickSearch-Gaming')).hitTestable(),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('recentSearchRow')).hitTestable(),
+      findsNothing,
+    );
 
     await tester.drag(
       find.byKey(const Key('searchScrollView')),
-      const Offset(0, -700),
+      const Offset(0, 140),
     );
     await tester.pumpAndSettle();
+
+    expect(scrollView.controller!.offset, greaterThan(0));
+    expect(scrollView.controller!.offset, lessThan(deepOffset));
+    expect(find.byKey(const Key('searchField')).hitTestable(), findsOneWidget);
+    expect(
+      find.byKey(const Key('quickSearch-Gaming')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('recentSearchRow')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(notifier.loadNextPageCalls, 0);
+
+    await tester.drag(
+      find.byKey(const Key('searchScrollView')),
+      const Offset(0, -140),
+    );
+    await tester.pumpAndSettle();
+
     expect(find.byKey(const Key('searchField')).hitTestable(), findsOneWidget);
     expect(
       find.byKey(const Key('quickSearch-Gaming')).hitTestable(),

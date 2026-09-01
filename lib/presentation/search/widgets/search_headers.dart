@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show FloatingHeaderSnapConfiguration;
 
 abstract final class SearchHeaderLayout {
   static const double horizontalPadding = 16;
@@ -238,53 +237,5 @@ class DiscoveryHeader extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class FixedHeaderDelegate extends SliverPersistentHeaderDelegate {
-  FixedHeaderDelegate({
-    required this.extent,
-    required this.child,
-    this.snap = false,
-    this.tickerProvider,
-  });
-
-  final double extent;
-  final Widget child;
-  final bool snap;
-  final TickerProvider? tickerProvider;
-
-  @override
-  double get minExtent => extent;
-
-  @override
-  double get maxExtent => extent;
-
-  @override
-  TickerProvider? get vsync => tickerProvider;
-
-  @override
-  FloatingHeaderSnapConfiguration? get snapConfiguration => snap
-      ? FloatingHeaderSnapConfiguration(
-          curve: Curves.easeOut,
-          duration: const Duration(milliseconds: 180),
-        )
-      : null;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return SizedBox.expand(child: child);
-  }
-
-  @override
-  bool shouldRebuild(covariant FixedHeaderDelegate oldDelegate) {
-    return extent != oldDelegate.extent ||
-        child != oldDelegate.child ||
-        snap != oldDelegate.snap ||
-        tickerProvider != oldDelegate.tickerProvider;
   }
 }
