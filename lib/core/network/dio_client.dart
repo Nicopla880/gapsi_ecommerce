@@ -24,7 +24,10 @@ class DioClient {
     if (kDebugMode) {
       _dio.interceptors.add(
         PrettyDioLogger(
-          requestHeader: true,
+          // Los headers pueden contener API keys, auth o cookies. La URI
+          // completa conserva path y query params sin exponerlos.
+          requestHeader: false,
+          responseHeader: false,
           requestBody: true,
           responseBody: false,
           compact: true,
