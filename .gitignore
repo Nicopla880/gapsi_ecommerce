@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secretos inyectados por --dart-define-from-file (nunca versionar)
+env.json
+*.env
